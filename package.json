@@ -1,0 +1,14 @@
+{
+  "name": "xauusd-signal-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small XAUUSD candlestick analysis and signal web app.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

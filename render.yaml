@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: xauusd-signal-desk
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DISPLAY_SYMBOL
+        value: XAUUSD
+      - key: YAHOO_SYMBOL
+        value: GC=F
