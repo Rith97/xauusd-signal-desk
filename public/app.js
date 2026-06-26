@@ -119,15 +119,15 @@ function renderChart(analysis) {
   ctx.lineWidth = 1;
   ctx.font = `${11 * dpr}px Inter, sans-serif`;
   ctx.textBaseline = "middle";
-  ctx.textAlign = "left";
+  ctx.textAlign = "right";
   for (let i = 0; i <= 4; i += 1) {
     const y = plotT + (plotH / 4) * i;
     ctx.beginPath();
     ctx.moveTo(plotL, y);
     ctx.lineTo(plotR, y);
     ctx.stroke();
-    ctx.fillStyle = "#6f7d7a";
-    ctx.fillText(fmt.format(max - (span / 4) * i), plotR + 6 * dpr, y);
+    ctx.fillStyle = "#8b9794";
+    ctx.fillText(fmt.format(max - (span / 4) * i), W - 6 * dpr, y);
   }
 
   // EMA overlays.
@@ -167,7 +167,9 @@ function renderChart(analysis) {
     ctx.fillRect(x - candleW / 2, Math.min(openY, closeY), candleW, Math.max(1.5 * dpr, Math.abs(closeY - openY)));
   }
 
-  // Trade-level lines drawn across the candles with a colored price tag.
+  // Trade-level lines drawn across the candles, each with a readable price tag:
+  // a solid dark plate (so the number stays legible over candles) + colored text.
+  ctx.font = `${12 * dpr}px Inter, sans-serif`;
   for (const level of levels) {
     if (!Number.isFinite(level.price)) continue;
     const y = yFor(level.price);
@@ -181,14 +183,19 @@ function renderChart(analysis) {
     ctx.setLineDash([]);
 
     const text = `${level.label} ${fmt.format(level.price)}`;
-    const tw = ctx.measureText(text).width;
-    const tagX = plotR - tw - 10 * dpr;
-    ctx.globalAlpha = 0.16;
-    ctx.fillStyle = level.color;
-    ctx.fillRect(tagX - 5 * dpr, y - 9 * dpr, tw + 10 * dpr, 18 * dpr);
+    const padX = 7 * dpr;
+    const tagH = 18 * dpr;
+    const tagW = ctx.measureText(text).width + padX * 2 + 3 * dpr;
+    const tagX = plotR - tagW;
+    const tagY = y - tagH / 2;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#0b0e11";
+    ctx.fillRect(tagX, tagY, tagW, tagH);
     ctx.globalAlpha = 1;
     ctx.fillStyle = level.color;
-    ctx.fillText(text, tagX, y);
+    ctx.fillRect(tagX, tagY, 3 * dpr, tagH);
+    ctx.textAlign = "left";
+    ctx.fillText(text, tagX + 3 * dpr + padX, y);
   }
 }
 
