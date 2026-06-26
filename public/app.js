@@ -21,6 +21,8 @@ const strategyList = document.querySelector("#strategyList");
 
 let activeInterval = "5m";
 let refreshTimer = null;
+let liveSocket = null;
+let lastPayload = null;
 let lastCandles = [];
 
 const fmt = new Intl.NumberFormat("en-US", {
@@ -274,6 +276,7 @@ function drawChart(candles, analysis) {
 function render(payload) {
   const candles = payload.candles || [];
   if (candles.length < 60) throw new Error("Not enough candles returned");
+  lastPayload = payload;
   lastCandles = candles;
   const analysis = analyze(candles);
   drawChart(candles, analysis);
@@ -304,6 +307,75 @@ function render(payload) {
   }
 }
 
+function renderLiveCandle(candle) {
+  if (!lastPayload || !lastCandles.length) return;
+  const candles = [...lastCandles];
+  const last = candles.at(-1);
+  if (last && last.time === candle.time) {
+    candles[candles.length - 1] = candle;
+  } else if (!last || candle.time > last.time) {
+    candles.push(candle);
+  } else {
+    return;
+  }
+
+  lastPayload = {
+    ...lastPayload,
+    candles,
+    marketTime: candle.time,
+    fetchedAt: Date.now()
+  };
+  render(lastPayload);
+  marketClock.textContent = `Live ${new Date(candle.time).toLocaleString()}`;
+}
+
+function closeLiveSocket() {
+  if (!liveSocket) return;
+  liveSocket.onclose = null;
+  liveSocket.close();
+  liveSocket = null;
+}
+
+function connectLiveStream(payload) {
+  closeLiveSocket();
+  if (payload.dataProvider !== "binance" || !payload.wsStream) return;
+
+  liveSocket = new WebSocket(payload.wsStream);
+  liveSocket.onopen = () => {
+    connectionDot.className = "dot live";
+    marketClock.textContent = `Live stream ${payload.tradeSymbol}`;
+  };
+  liveSocket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      const kline = data.k;
+      if (!kline) return;
+      renderLiveCandle({
+        time: Number(kline.t),
+        open: Number(kline.o),
+        high: Number(kline.h),
+        low: Number(kline.l),
+        close: Number(kline.c),
+        volume: Number(kline.v),
+        closeTime: Number(kline.T)
+      });
+    } catch (error) {
+      showError(error);
+    }
+  };
+  liveSocket.onerror = () => {
+    connectionDot.className = "dot error";
+    marketClock.textContent = "Live stream error, using refresh fallback";
+  };
+  liveSocket.onclose = () => {
+    liveSocket = null;
+    if (autoRefresh.checked) {
+      marketClock.textContent = "Live stream closed, reconnecting";
+      setTimeout(() => loadCandles().catch(showError), 3000);
+    }
+  };
+}
+
 async function loadCandles() {
   connectionDot.className = "dot";
   marketClock.textContent = "Fetching market data";
@@ -311,6 +383,7 @@ async function loadCandles() {
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.detail || payload.error || "Market data request failed");
   render(payload);
+  connectLiveStream(payload);
 }
 
 function scheduleRefresh() {
@@ -329,12 +402,17 @@ timeframes.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-interval]");
   if (!button) return;
   activeInterval = button.dataset.interval;
+  closeLiveSocket();
   for (const item of timeframes.querySelectorAll("button")) item.classList.toggle("active", item === button);
   loadCandles().catch(showError);
   scheduleRefresh();
 });
 
-autoRefresh.addEventListener("change", scheduleRefresh);
+autoRefresh.addEventListener("change", () => {
+  scheduleRefresh();
+  if (autoRefresh.checked) loadCandles().catch(showError);
+  else closeLiveSocket();
+});
 window.addEventListener("resize", () => {
   if (lastCandles.length > 60) drawChart(lastCandles, analyze(lastCandles));
 });

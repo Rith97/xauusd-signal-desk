@@ -4,6 +4,9 @@ import { extname, join, normalize } from "node:path";
 
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = join(process.cwd(), "public");
+const DATA_PROVIDER = (process.env.DATA_PROVIDER || "binance").toLowerCase();
+const BINANCE_SYMBOL = process.env.BINANCE_SYMBOL || "PAXGUSDT";
+const BINANCE_REST_URL = process.env.BINANCE_REST_URL || "https://data-api.binance.vision";
 const YAHOO_SYMBOL = process.env.YAHOO_SYMBOL || "GC=F";
 const DISPLAY_SYMBOL = process.env.DISPLAY_SYMBOL || "XAUUSD";
 
@@ -40,12 +43,27 @@ const yahooIntervals = {
   "1wk": "1wk"
 };
 
+const binanceIntervals = {
+  "1m": "1m",
+  "5m": "5m",
+  "15m": "15m",
+  "30m": "30m",
+  "1h": "1h",
+  "4h": "4h",
+  "1d": "1d",
+  "1wk": "1w"
+};
+
 function json(res, status, payload) {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store"
   });
   res.end(JSON.stringify(payload));
+}
+
+function wsSymbol(symbol) {
+  return symbol.toLowerCase();
 }
 
 function aggregateCandles(candles, hours) {
@@ -67,6 +85,59 @@ function aggregateCandles(candles, hours) {
   }
 
   return Array.from(buckets.values()).sort((a, b) => a.time - b.time);
+}
+
+async function fetchBinanceCandles(interval) {
+  const sourceInterval = binanceIntervals[interval] || "5m";
+  const url = new URL("/api/v3/klines", BINANCE_REST_URL);
+  url.searchParams.set("symbol", BINANCE_SYMBOL);
+  url.searchParams.set("interval", sourceInterval);
+  url.searchParams.set("limit", "1000");
+
+  const response = await fetch(url, {
+    headers: {
+      "accept": "application/json",
+      "user-agent": "Mozilla/5.0 xauusd-signal-desk"
+    }
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Binance responded ${response.status}: ${detail.slice(0, 160)}`);
+  }
+
+  const rows = await response.json();
+  const candles = rows
+    .map((row) => ({
+      time: Number(row[0]),
+      open: Number(row[1]),
+      high: Number(row[2]),
+      low: Number(row[3]),
+      close: Number(row[4]),
+      volume: Number(row[5]),
+      closeTime: Number(row[6])
+    }))
+    .filter((candle) =>
+      Number.isFinite(candle.time) &&
+      Number.isFinite(candle.open) &&
+      Number.isFinite(candle.high) &&
+      Number.isFinite(candle.low) &&
+      Number.isFinite(candle.close)
+    );
+
+  return {
+    symbol: DISPLAY_SYMBOL,
+    tradeSymbol: BINANCE_SYMBOL,
+    provider: `Binance ${BINANCE_SYMBOL}`,
+    dataProvider: "binance",
+    interval,
+    sourceInterval,
+    wsStream: `wss://stream.binance.com:9443/ws/${wsSymbol(BINANCE_SYMBOL)}@kline_${sourceInterval}`,
+    candles,
+    fetchedAt: Date.now(),
+    marketTime: candles.at(-1)?.time || null,
+    note: "Binance does not list spot XAUUSD directly. The default live feed uses PAXGUSDT as a gold-backed crypto proxy."
+  };
 }
 
 async function fetchYahooCandles(interval) {
@@ -114,7 +185,9 @@ async function fetchYahooCandles(interval) {
 
   return {
     symbol: DISPLAY_SYMBOL,
+    tradeSymbol: YAHOO_SYMBOL,
     provider: `Yahoo Finance ${YAHOO_SYMBOL}`,
+    dataProvider: "yahoo",
     interval,
     sourceInterval: yahooInterval,
     candles,
@@ -127,20 +200,23 @@ async function fetchYahooCandles(interval) {
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const interval = url.searchParams.get("interval") || "5m";
+  const provider = (url.searchParams.get("provider") || DATA_PROVIDER).toLowerCase();
 
-  if (!Object.hasOwn(yahooIntervals, interval)) {
+  if (!Object.hasOwn(binanceIntervals, interval) && !Object.hasOwn(yahooIntervals, interval)) {
     json(res, 400, { error: "Unsupported interval" });
     return;
   }
 
   try {
-    const payload = await fetchYahooCandles(interval);
+    const payload = provider === "yahoo"
+      ? await fetchYahooCandles(interval)
+      : await fetchBinanceCandles(interval);
     json(res, 200, payload);
   } catch (error) {
     json(res, 502, {
       error: "Could not fetch XAUUSD market data",
       detail: error.message,
-      provider: `Yahoo Finance ${YAHOO_SYMBOL}`
+      provider: provider === "yahoo" ? `Yahoo Finance ${YAHOO_SYMBOL}` : `Binance ${BINANCE_SYMBOL}`
     });
   }
 }

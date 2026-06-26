@@ -12,10 +12,14 @@ A small Railway-ready web app for XAUUSD candlestick analysis and multi-timefram
 
 ## Data Source
 
-The default server proxy uses Yahoo Finance symbol `GC=F` because Yahoo's public chart API does not reliably expose spot `XAUUSD`. This is useful for gold analysis and prototyping, but it may be delayed and it is futures-based. For execution-grade low-latency spot XAUUSD signals, connect a paid real-time metals/forex data provider or your broker feed.
+The default server proxy uses Binance `PAXGUSDT` because Binance does not list spot `XAUUSD` directly. `PAXG` is a gold-backed token, so this gives a much more live chart experience through Binance REST candles plus Binance WebSocket kline updates.
+
+Yahoo Finance `GC=F` is still supported as a fallback by setting `DATA_PROVIDER=yahoo`. For execution-grade low-latency spot XAUUSD signals, connect a paid real-time metals/forex data provider or your broker feed.
 
 Optional environment variables:
 
+- `DATA_PROVIDER`: `binance` or `yahoo`, default `binance`.
+- `BINANCE_SYMBOL`: Binance kline ticker, default `PAXGUSDT`.
 - `YAHOO_SYMBOL`: Yahoo chart ticker, default `GC=F`.
 - `DISPLAY_SYMBOL`: UI label, default `XAUUSD`.
 
@@ -57,5 +61,7 @@ Manual Render web service settings:
 - Start command: `npm start`
 - Environment variables:
   - `NODE_VERSION=20`
+  - `DATA_PROVIDER=binance`
   - `DISPLAY_SYMBOL=XAUUSD`
+  - `BINANCE_SYMBOL=PAXGUSDT`
   - `YAHOO_SYMBOL=GC=F`

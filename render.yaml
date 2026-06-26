@@ -11,5 +11,9 @@ services:
         value: 20
       - key: DISPLAY_SYMBOL
         value: XAUUSD
+      - key: DATA_PROVIDER
+        value: binance
+      - key: BINANCE_SYMBOL
+        value: PAXGUSDT
       - key: YAHOO_SYMBOL
         value: GC=F
