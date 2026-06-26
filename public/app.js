@@ -1,5 +1,3 @@
-const chart = document.querySelector("#chart");
-const ctx = chart.getContext("2d");
 const timeframes = document.querySelector("#timeframes");
 const autoRefresh = document.querySelector("#autoRefresh");
 const connectionDot = document.querySelector("#connectionDot");
@@ -18,17 +16,71 @@ const entryLevel = document.querySelector("#entryLevel");
 const stopLevel = document.querySelector("#stopLevel");
 const takeProfitLevel = document.querySelector("#takeProfitLevel");
 const strategyList = document.querySelector("#strategyList");
+const tvChart = document.querySelector("#tvChart");
+
+const TV_SYMBOL = "OANDA:XAUUSD";
+
+// Our timeframe buttons mapped to TradingView chart intervals.
+const tvIntervals = {
+  "1m": "1",
+  "5m": "5",
+  "15m": "15",
+  "30m": "30",
+  "1h": "60",
+  "4h": "240",
+  "1d": "D"
+};
 
 let activeInterval = "5m";
 let refreshTimer = null;
 let liveSocket = null;
 let lastPayload = null;
 let lastCandles = [];
+let lastPaint = 0;
+let paintQueued = false;
 
 const fmt = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
+
+/* ---------- Live chart (TradingView Advanced Chart widget) ---------- */
+
+function mountChart(interval) {
+  if (!tvChart) return;
+  tvChart.innerHTML = "";
+
+  const container = document.createElement("div");
+  container.className = "tradingview-widget-container";
+
+  const widget = document.createElement("div");
+  widget.className = "tradingview-widget-container__widget";
+  container.append(widget);
+
+  const script = document.createElement("script");
+  script.type = "text/javascript";
+  script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+  script.async = true;
+  script.innerHTML = JSON.stringify({
+    autosize: true,
+    symbol: TV_SYMBOL,
+    interval: tvIntervals[interval] || "5",
+    timezone: "Etc/UTC",
+    theme: "dark",
+    style: "1",
+    locale: "en",
+    enable_publishing: false,
+    allow_symbol_change: true,
+    hide_side_toolbar: false,
+    studies: ["MAExp@tv-basicstudies", "RSI@tv-basicstudies"],
+    support_host: "https://www.tradingview.com"
+  });
+
+  container.append(script);
+  tvChart.append(container);
+}
+
+/* ---------- Indicators ---------- */
 
 function sma(values, period) {
   return values.map((_, index) => {
@@ -192,105 +244,30 @@ function analyze(candles) {
   };
 }
 
-function resizeCanvas() {
-  const rect = chart.getBoundingClientRect();
-  const scale = window.devicePixelRatio || 1;
-  chart.width = Math.max(800, Math.floor(rect.width * scale));
-  chart.height = Math.max(420, Math.floor(rect.height * scale));
-}
+/* ---------- Signal panel rendering ---------- */
 
-function drawChart(candles, analysis) {
-  resizeCanvas();
-  const width = chart.width;
-  const height = chart.height;
-  const padding = { top: 24, right: 64, bottom: 34, left: 48 };
-  const visible = candles.slice(-120);
-  const highs = visible.map((candle) => candle.high);
-  const lows = visible.map((candle) => candle.low);
-  const max = Math.max(...highs);
-  const min = Math.min(...lows);
-  const range = max - min || 1;
-  const plotW = width - padding.left - padding.right;
-  const plotH = height - padding.top - padding.bottom;
-  const candleW = Math.max(4, plotW / visible.length * 0.62);
+function paintSignal() {
+  paintQueued = false;
+  lastPaint = Date.now();
 
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#11161a";
-  ctx.fillRect(0, 0, width, height);
+  const payload = lastPayload;
+  const candles = lastCandles;
+  if (!payload || candles.length < 60) return;
 
-  ctx.strokeStyle = "#253039";
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 5; i += 1) {
-    const y = padding.top + (plotH / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, y);
-    ctx.lineTo(width - padding.right, y);
-    ctx.stroke();
-    const price = max - (range / 5) * i;
-    ctx.fillStyle = "#9aa8a5";
-    ctx.font = `${12 * (window.devicePixelRatio || 1)}px sans-serif`;
-    ctx.fillText(fmt.format(price), width - padding.right + 8, y + 4);
-  }
-
-  const yFor = (price) => padding.top + ((max - price) / range) * plotH;
-
-  visible.forEach((candle, index) => {
-    const x = padding.left + (plotW / Math.max(visible.length - 1, 1)) * index;
-    const openY = yFor(candle.open);
-    const closeY = yFor(candle.close);
-    const highY = yFor(candle.high);
-    const lowY = yFor(candle.low);
-    const bullish = candle.close >= candle.open;
-    ctx.strokeStyle = bullish ? "#1fbf75" : "#e25252";
-    ctx.fillStyle = bullish ? "#1fbf75" : "#e25252";
-    ctx.beginPath();
-    ctx.moveTo(x, highY);
-    ctx.lineTo(x, lowY);
-    ctx.stroke();
-    const bodyY = Math.min(openY, closeY);
-    const bodyH = Math.max(2, Math.abs(closeY - openY));
-    ctx.fillRect(x - candleW / 2, bodyY, candleW, bodyH);
-  });
-
-  if (analysis.stop && analysis.takeProfit) {
-    const lines = [
-      ["Entry", analysis.entry, "#d8a83f"],
-      ["Stop", analysis.stop, "#e25252"],
-      ["TP", analysis.takeProfit, "#1fbf75"]
-    ];
-    lines.forEach(([label, price, color]) => {
-      const y = yFor(price);
-      ctx.strokeStyle = color;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(padding.left, y);
-      ctx.lineTo(width - padding.right, y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = color;
-      ctx.fillText(`${label} ${fmt.format(price)}`, padding.left + 8, y - 6);
-    });
-  }
-}
-
-function render(payload) {
-  const candles = payload.candles || [];
-  if (candles.length < 60) throw new Error("Not enough candles returned");
-  lastPayload = payload;
-  lastCandles = candles;
   const analysis = analyze(candles);
-  drawChart(candles, analysis);
 
   lastPrice.textContent = fmt.format(analysis.latest.close);
-  providerState.textContent = `Provider: ${payload.provider}`;
+  providerState.textContent = `Signal feed: ${payload.provider}`;
   spreadState.textContent = `${payload.symbol} ${payload.interval}`;
-  const ageSeconds = Math.round((Date.now() - payload.marketTime) / 1000);
-  marketClock.textContent = `Last candle ${new Date(payload.marketTime).toLocaleString()} (${ageSeconds}s old)`;
-  connectionDot.className = "dot live";
+  if (payload.marketTime) {
+    const ageSeconds = Math.max(0, Math.round((Date.now() - payload.marketTime) / 1000));
+    marketClock.textContent = `Signal candle ${new Date(payload.marketTime).toLocaleTimeString()} · ${ageSeconds}s old`;
+  }
+  connectionDot.className = liveSocket ? "dot live" : "dot";
 
   signalCard.className = `signal-card ${analysis.direction.toLowerCase()}`;
   signalText.textContent = analysis.direction;
-  confidenceText.textContent = `${analysis.confidence}% confidence score ${analysis.score}`;
+  confidenceText.textContent = `${analysis.confidence}% confidence · score ${analysis.score}`;
   trendMetric.textContent = analysis.trend;
   rsiMetric.textContent = analysis.rsi ? analysis.rsi.toFixed(1) : "--";
   macdMetric.textContent = analysis.macd ? analysis.macd.toFixed(2) : "--";
@@ -307,27 +284,44 @@ function render(payload) {
   }
 }
 
-function renderLiveCandle(candle) {
+// Coalesce rapid live ticks into at most ~4 repaints/second so the UI stays smooth.
+function requestPaint(force = false) {
+  if (force) {
+    paintSignal();
+    return;
+  }
+  if (paintQueued) return;
+  const elapsed = Date.now() - lastPaint;
+  const wait = Math.max(0, 250 - elapsed);
+  paintQueued = true;
+  setTimeout(() => requestAnimationFrame(paintSignal), wait);
+}
+
+function applyPayload(payload) {
+  const candles = payload.candles || [];
+  if (candles.length < 60) throw new Error("Not enough candles returned");
+  lastPayload = payload;
+  lastCandles = candles;
+  requestPaint(true);
+}
+
+function updateLiveCandle(candle) {
   if (!lastPayload || !lastCandles.length) return;
-  const candles = [...lastCandles];
-  const last = candles.at(-1);
+  const last = lastCandles.at(-1);
   if (last && last.time === candle.time) {
-    candles[candles.length - 1] = candle;
+    lastCandles[lastCandles.length - 1] = candle;
   } else if (!last || candle.time > last.time) {
-    candles.push(candle);
+    lastCandles.push(candle);
+    if (lastCandles.length > 1500) lastCandles.shift();
   } else {
     return;
   }
-
-  lastPayload = {
-    ...lastPayload,
-    candles,
-    marketTime: candle.time,
-    fetchedAt: Date.now()
-  };
-  render(lastPayload);
-  marketClock.textContent = `Live ${new Date(candle.time).toLocaleString()}`;
+  lastPayload.marketTime = candle.time;
+  lastPayload.fetchedAt = Date.now();
+  requestPaint();
 }
+
+/* ---------- Live signal feed (Binance WebSocket + REST fallback) ---------- */
 
 function closeLiveSocket() {
   if (!liveSocket) return;
@@ -343,14 +337,13 @@ function connectLiveStream(payload) {
   liveSocket = new WebSocket(payload.wsStream);
   liveSocket.onopen = () => {
     connectionDot.className = "dot live";
-    marketClock.textContent = `Live stream ${payload.tradeSymbol}`;
   };
   liveSocket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       const kline = data.k;
       if (!kline) return;
-      renderLiveCandle({
+      updateLiveCandle({
         time: Number(kline.t),
         open: Number(kline.o),
         high: Number(kline.h),
@@ -365,32 +358,29 @@ function connectLiveStream(payload) {
   };
   liveSocket.onerror = () => {
     connectionDot.className = "dot error";
-    marketClock.textContent = "Live stream error, using refresh fallback";
   };
   liveSocket.onclose = () => {
     liveSocket = null;
     if (autoRefresh.checked) {
-      marketClock.textContent = "Live stream closed, reconnecting";
-      setTimeout(() => loadCandles().catch(showError), 3000);
+      setTimeout(() => loadSignals().catch(showError), 3000);
     }
   };
 }
 
-async function loadCandles() {
-  connectionDot.className = "dot";
-  marketClock.textContent = "Fetching market data";
+async function loadSignals() {
+  if (!lastPayload) marketClock.textContent = "Fetching signal data";
   const response = await fetch(`/api/candles?interval=${encodeURIComponent(activeInterval)}`, { cache: "no-store" });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.detail || payload.error || "Market data request failed");
-  render(payload);
-  connectLiveStream(payload);
+  applyPayload(payload);
+  if (autoRefresh.checked) connectLiveStream(payload);
 }
 
 function scheduleRefresh() {
   clearInterval(refreshTimer);
   if (!autoRefresh.checked) return;
   const intervalMs = activeInterval === "1m" ? 15000 : 30000;
-  refreshTimer = setInterval(() => loadCandles().catch(showError), intervalMs);
+  refreshTimer = setInterval(() => loadSignals().catch(showError), intervalMs);
 }
 
 function showError(error) {
@@ -398,24 +388,25 @@ function showError(error) {
   marketClock.textContent = error.message;
 }
 
+/* ---------- Controls ---------- */
+
 timeframes.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-interval]");
   if (!button) return;
   activeInterval = button.dataset.interval;
-  closeLiveSocket();
   for (const item of timeframes.querySelectorAll("button")) item.classList.toggle("active", item === button);
-  loadCandles().catch(showError);
+  closeLiveSocket();
+  mountChart(activeInterval);
+  loadSignals().catch(showError);
   scheduleRefresh();
 });
 
 autoRefresh.addEventListener("change", () => {
   scheduleRefresh();
-  if (autoRefresh.checked) loadCandles().catch(showError);
+  if (autoRefresh.checked) loadSignals().catch(showError);
   else closeLiveSocket();
 });
-window.addEventListener("resize", () => {
-  if (lastCandles.length > 60) drawChart(lastCandles, analyze(lastCandles));
-});
 
-loadCandles().catch(showError);
+mountChart(activeInterval);
+loadSignals().catch(showError);
 scheduleRefresh();

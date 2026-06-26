@@ -4,17 +4,20 @@ A small Railway-ready web app for XAUUSD candlestick analysis and multi-timefram
 
 ## Features
 
-- XAUUSD candlestick chart with 1m, 5m, 15m, 30m, 1h, 4h, and 1D timeframes.
+- Live XAUUSD candlestick chart embedded from **TradingView** (`OANDA:XAUUSD`) with 1m, 5m, 15m, 30m, 1h, 4h, and 1D timeframes, EMA and RSI studies built in.
 - Strategy engine using EMA trend, EMA momentum, RSI, MACD histogram, ATR, support/resistance, and candlestick patterns.
 - BUY, SELL, or HOLD signal with confidence, entry, stop, and take-profit levels.
-- Auto-refresh market data and visible candle timestamp/latency.
+- Live signal updates over a Binance WebSocket kline stream, with throttled (≈4/s) repaints so the UI stays smooth.
 - No package dependencies; runs on Node.js 20+.
 
-## Data Source
+## Data Sources
 
-The default server proxy uses Binance `PAXGUSDT` because Binance does not list spot `XAUUSD` directly. `PAXG` is a gold-backed token, so this gives a much more live chart experience through Binance REST candles plus Binance WebSocket kline updates.
+There are two independent feeds:
 
-Yahoo Finance `GC=F` is still supported as a fallback by setting `DATA_PROVIDER=yahoo`. For execution-grade low-latency spot XAUUSD signals, connect a paid real-time metals/forex data provider or your broker feed.
+- **Chart** — the live price chart is the TradingView Advanced Chart widget loaded directly in the browser, so it streams real spot gold (`OANDA:XAUUSD`) with no server-side data plumbing. Change the symbol in `public/app.js` (`TV_SYMBOL`).
+- **Signals** — the BUY/SELL/HOLD engine is computed from the server's `/api/candles` feed. The default proxy uses Binance `PAXGUSDT` (a gold-backed token that tracks spot gold closely) for REST candles plus a Binance WebSocket kline stream for live recomputation, because Binance does not list spot `XAUUSD` directly.
+
+Yahoo Finance `GC=F` is still supported as a fallback signal feed by setting `DATA_PROVIDER=yahoo`. For execution-grade low-latency spot XAUUSD signals, connect a paid real-time metals/forex data provider or your broker feed.
 
 Optional environment variables:
 

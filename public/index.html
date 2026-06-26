@@ -31,7 +31,7 @@
         </div>
         <label class="toggle-row">
           <input id="autoRefresh" type="checkbox" checked>
-          <span>Auto refresh</span>
+          <span>Live signals</span>
         </label>
       </section>
 
@@ -39,15 +39,17 @@
         <div class="chart-area">
           <div class="chart-head">
             <div>
-              <p class="label">Live chart</p>
+              <p class="label">XAUUSD &middot; TradingView live</p>
               <strong id="lastPrice">--</strong>
             </div>
             <div class="chart-meta">
               <span id="spreadState">XAUUSD</span>
-              <span id="providerState">Provider: --</span>
+              <span id="providerState">Signal feed: --</span>
             </div>
           </div>
-          <canvas id="chart" width="1200" height="620" aria-label="XAUUSD candlestick chart"></canvas>
+          <div id="tvChart" class="tv-chart" aria-label="XAUUSD live TradingView chart">
+            <p class="tv-loading">Loading TradingView live chart&hellip;</p>
+          </div>
         </div>
 
         <aside class="signal-panel">
@@ -90,7 +92,7 @@
       </section>
 
       <footer>
-        Signals are technical analysis only. Real-time execution requires a low-latency broker or paid metals data feed.
+        Live chart streamed from TradingView (OANDA:XAUUSD). Signals are technical analysis only &mdash; real-time execution requires a low-latency broker or paid metals data feed.
       </footer>
     </main>
     <script src="/app.js" type="module"></script>

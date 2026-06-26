@@ -173,12 +173,32 @@ h1 {
   font-size: 13px;
 }
 
-canvas {
+.tv-chart {
   width: 100%;
   height: 100%;
   min-height: 460px;
   display: block;
   background: #11161a;
+  position: relative;
+}
+
+.tv-chart .tradingview-widget-container,
+.tv-chart .tradingview-widget-container__widget,
+.tv-chart iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.tv-loading {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 460px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .signal-panel {
@@ -317,7 +337,8 @@ footer {
     min-height: 440px;
   }
 
-  canvas {
+  .tv-chart,
+  .tv-loading {
     min-height: 360px;
   }
 }
