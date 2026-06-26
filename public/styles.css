@@ -182,12 +182,6 @@ h1 {
   position: relative;
 }
 
-.price-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
 .tv-loading {
   margin: 0;
   display: flex;
