@@ -17,22 +17,8 @@ const stopLevel = document.querySelector("#stopLevel");
 const tp1Level = document.querySelector("#tp1Level");
 const tp2Level = document.querySelector("#tp2Level");
 const setupSide = document.querySelector("#setupSide");
-const levelMap = document.querySelector("#levelMap");
 const strategyList = document.querySelector("#strategyList");
 const tvChart = document.querySelector("#tvChart");
-
-const TV_SYMBOL = "OANDA:XAUUSD";
-
-// Our timeframe buttons mapped to TradingView chart intervals.
-const tvIntervals = {
-  "1m": "1",
-  "5m": "5",
-  "15m": "15",
-  "30m": "30",
-  "1h": "60",
-  "4h": "240",
-  "1d": "D"
-};
 
 let activeInterval = "5m";
 let refreshTimer = null;
@@ -42,45 +28,172 @@ let lastCandles = [];
 let lastPaint = 0;
 let paintQueued = false;
 
+let chartCanvas = null;
+let chartCtx = null;
+let chartReady = false;
+
 const fmt = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
 
-/* ---------- Live chart (TradingView Advanced Chart widget) ---------- */
+/* ---------- Live candlestick chart (built-in canvas) ---------- */
 
-function mountChart(interval) {
+function initChart() {
   if (!tvChart) return;
   tvChart.innerHTML = "";
+  chartCanvas = document.createElement("canvas");
+  chartCanvas.className = "price-canvas";
+  tvChart.append(chartCanvas);
+  chartCtx = chartCanvas.getContext("2d");
+  chartReady = true;
+}
 
-  const container = document.createElement("div");
-  container.className = "tradingview-widget-container";
+function sizeCanvas() {
+  const rect = tvChart.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(320, Math.round(rect.width * dpr));
+  const h = Math.max(320, Math.round(rect.height * dpr));
+  if (chartCanvas.width !== w) chartCanvas.width = w;
+  if (chartCanvas.height !== h) chartCanvas.height = h;
+}
 
-  const widget = document.createElement("div");
-  widget.className = "tradingview-widget-container__widget";
-  container.append(widget);
+// Full redraw of the visible window: candles, EMA 9/21, and the trade-level
+// lines drawn directly across the candles. Cheap (~120 candles) and throttled.
+function renderChart(analysis) {
+  if (!chartReady || lastCandles.length < 2) return;
+  sizeCanvas();
+  const ctx = chartCtx;
+  const dpr = window.devicePixelRatio || 1;
+  const W = chartCanvas.width;
+  const H = chartCanvas.height;
+  const pad = { top: 16 * dpr, right: 78 * dpr, bottom: 22 * dpr, left: 10 * dpr };
 
-  const script = document.createElement("script");
-  script.type = "text/javascript";
-  script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-  script.async = true;
-  script.innerHTML = JSON.stringify({
-    autosize: true,
-    symbol: TV_SYMBOL,
-    interval: tvIntervals[interval] || "5",
-    timezone: "Etc/UTC",
-    theme: "dark",
-    style: "1",
-    locale: "en",
-    enable_publishing: false,
-    allow_symbol_change: true,
-    hide_side_toolbar: false,
-    studies: ["MAExp@tv-basicstudies", "RSI@tv-basicstudies"],
-    support_host: "https://www.tradingview.com"
-  });
+  const visible = lastCandles.slice(-140);
+  const n = visible.length;
+  const startIdx = lastCandles.length - n;
+  const closes = lastCandles.map((candle) => candle.close);
+  const e9 = ema(closes, 9);
+  const e21 = ema(closes, 21);
 
-  container.append(script);
-  tvChart.append(container);
+  const levels = [
+    { price: analysis?.tp2, color: "#27d17c", label: "TP2" },
+    { price: analysis?.tp1, color: "#1fbf75", label: "TP1" },
+    { price: analysis?.entry, color: "#d8a83f", label: "Entry" },
+    { price: analysis?.stop, color: "#e25252", label: "SL" }
+  ];
+
+  let max = -Infinity;
+  let min = Infinity;
+  for (const candle of visible) {
+    if (candle.high > max) max = candle.high;
+    if (candle.low < min) min = candle.low;
+  }
+  for (const level of levels) {
+    if (Number.isFinite(level.price)) {
+      if (level.price > max) max = level.price;
+      if (level.price < min) min = level.price;
+    }
+  }
+  const pnear = (max - min) * 0.06 || 1;
+  max += pnear;
+  min -= pnear;
+  const span = max - min || 1;
+
+  const plotL = pad.left;
+  const plotR = W - pad.right;
+  const plotT = pad.top;
+  const plotB = H - pad.bottom;
+  const plotW = plotR - plotL;
+  const plotH = plotB - plotT;
+  const step = plotW / Math.max(n, 1);
+  const candleW = Math.max(2 * dpr, step * 0.62);
+  const xFor = (i) => plotL + step * (i + 0.5);
+  const yFor = (price) => plotT + ((max - price) / span) * plotH;
+
+  ctx.fillStyle = "#11161a";
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid + right-edge price scale.
+  ctx.strokeStyle = "#1b2228";
+  ctx.lineWidth = 1;
+  ctx.font = `${11 * dpr}px Inter, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  for (let i = 0; i <= 4; i += 1) {
+    const y = plotT + (plotH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(plotL, y);
+    ctx.lineTo(plotR, y);
+    ctx.stroke();
+    ctx.fillStyle = "#6f7d7a";
+    ctx.fillText(fmt.format(max - (span / 4) * i), plotR + 6 * dpr, y);
+  }
+
+  // EMA overlays.
+  const drawEma = (values, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i += 1) {
+      const value = values[startIdx + i];
+      if (!Number.isFinite(value)) continue;
+      const x = xFor(i);
+      const y = yFor(value);
+      if (started) ctx.lineTo(x, y);
+      else { ctx.moveTo(x, y); started = true; }
+    }
+    ctx.stroke();
+  };
+  drawEma(e9, "#4aa3ff");
+  drawEma(e21, "#b07cf0");
+
+  // Candles.
+  for (let i = 0; i < n; i += 1) {
+    const candle = visible[i];
+    const x = xFor(i);
+    const bull = candle.close >= candle.open;
+    const color = bull ? "#1fbf75" : "#e25252";
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(1, dpr);
+    ctx.beginPath();
+    ctx.moveTo(x, yFor(candle.high));
+    ctx.lineTo(x, yFor(candle.low));
+    ctx.stroke();
+    const openY = yFor(candle.open);
+    const closeY = yFor(candle.close);
+    ctx.fillRect(x - candleW / 2, Math.min(openY, closeY), candleW, Math.max(1.5 * dpr, Math.abs(closeY - openY)));
+  }
+
+  // Trade-level lines drawn across the candles with a colored price tag.
+  for (const level of levels) {
+    if (!Number.isFinite(level.price)) continue;
+    const y = yFor(level.price);
+    ctx.strokeStyle = level.color;
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.setLineDash([6 * dpr, 5 * dpr]);
+    ctx.beginPath();
+    ctx.moveTo(plotL, y);
+    ctx.lineTo(plotR, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const text = `${level.label} ${fmt.format(level.price)}`;
+    const tw = ctx.measureText(text).width;
+    const tagX = plotR - tw - 10 * dpr;
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = level.color;
+    ctx.fillRect(tagX - 5 * dpr, y - 9 * dpr, tw + 10 * dpr, 18 * dpr);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = level.color;
+    ctx.fillText(text, tagX, y);
+  }
+}
+
+function showChartError(error) {
+  if (tvChart) tvChart.innerHTML = `<p class="tv-loading">Chart unavailable (${error.message}). Signals still running.</p>`;
 }
 
 /* ---------- Indicators ---------- */
@@ -256,47 +369,6 @@ function analyze(candles) {
   };
 }
 
-/* ---------- Trade-level map (SVG marker lines) ---------- */
-
-function drawLevelMap(analysis) {
-  if (!levelMap) return;
-
-  const rows = [
-    { key: "TP2", price: analysis.tp2, color: "#27d17c" },
-    { key: "TP1", price: analysis.tp1, color: "#1fbf75" },
-    { key: "Entry", price: analysis.entry, color: "#d8a83f" },
-    { key: "SL", price: analysis.stop, color: "#e25252" }
-  ].filter((row) => Number.isFinite(row.price));
-
-  const prices = rows.map((row) => row.price);
-  const max = Math.max(...prices);
-  const min = Math.min(...prices);
-  const span = max - min || 1;
-
-  const W = 320;
-  const H = 184;
-  const padY = 20;
-  const lineX1 = 12;
-  const lineX2 = 196;
-  const dotX = lineX2 + 12;
-  const yFor = (price) => padY + (1 - (price - min) / span) * (H - padY * 2);
-
-  // Vertical guide spanning the full SL-to-TP2 range.
-  const guide = `<line x1="${dotX}" y1="${yFor(max).toFixed(1)}" x2="${dotX}" y2="${yFor(min).toFixed(1)}" stroke="#303942" stroke-width="2" />`;
-
-  const items = rows.map((row) => {
-    const y = yFor(row.price).toFixed(1);
-    return (
-      `<line x1="${lineX1}" y1="${y}" x2="${lineX2}" y2="${y}" stroke="${row.color}" stroke-width="2" stroke-dasharray="6 5" />` +
-      `<circle cx="${dotX}" cy="${y}" r="3.5" fill="${row.color}" />` +
-      `<text x="${lineX1}" y="${(Number(y) - 5).toFixed(1)}" fill="${row.color}" font-size="11" font-family="sans-serif">${row.key}</text>` +
-      `<text x="${dotX + 10}" y="${(Number(y) + 4).toFixed(1)}" fill="${row.color}" font-size="12" font-weight="600" font-family="sans-serif">${fmt.format(row.price)}</text>`
-    );
-  }).join("");
-
-  levelMap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Entry, TP1, TP2 and SL price levels">${guide}${items}</svg>`;
-}
-
 /* ---------- Signal panel rendering ---------- */
 
 function paintSignal() {
@@ -308,13 +380,14 @@ function paintSignal() {
   if (!payload || candles.length < 60) return;
 
   const analysis = analyze(candles);
+  renderChart(analysis);
 
   lastPrice.textContent = fmt.format(analysis.latest.close);
-  providerState.textContent = `Signal feed: ${payload.provider}`;
+  providerState.textContent = `Feed: ${payload.provider}`;
   spreadState.textContent = `${payload.symbol} ${payload.interval}`;
   if (payload.marketTime) {
     const ageSeconds = Math.max(0, Math.round((Date.now() - payload.marketTime) / 1000));
-    marketClock.textContent = `Signal candle ${new Date(payload.marketTime).toLocaleTimeString()} · ${ageSeconds}s old`;
+    marketClock.textContent = `Candle ${new Date(payload.marketTime).toLocaleTimeString()} · ${ageSeconds}s old`;
   }
   connectionDot.className = liveSocket ? "dot live" : "dot";
 
@@ -331,7 +404,6 @@ function paintSignal() {
   tp2Level.textContent = fmt.format(analysis.tp2);
   setupSide.textContent = analysis.side;
   setupSide.className = `side-tag ${analysis.side.toLowerCase()}`;
-  drawLevelMap(analysis);
 
   strategyList.innerHTML = "";
   for (const [name, value] of analysis.checks) {
@@ -378,7 +450,7 @@ function updateLiveCandle(candle) {
   requestPaint();
 }
 
-/* ---------- Live signal feed (Binance WebSocket + REST fallback) ---------- */
+/* ---------- Live feed (Binance WebSocket + REST fallback) ---------- */
 
 function closeLiveSocket() {
   if (!liveSocket) return;
@@ -425,7 +497,7 @@ function connectLiveStream(payload) {
 }
 
 async function loadSignals() {
-  if (!lastPayload) marketClock.textContent = "Fetching signal data";
+  if (!lastPayload) marketClock.textContent = "Fetching market data";
   const response = await fetch(`/api/candles?interval=${encodeURIComponent(activeInterval)}`, { cache: "no-store" });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.detail || payload.error || "Market data request failed");
@@ -453,7 +525,6 @@ timeframes.addEventListener("click", (event) => {
   activeInterval = button.dataset.interval;
   for (const item of timeframes.querySelectorAll("button")) item.classList.toggle("active", item === button);
   closeLiveSocket();
-  mountChart(activeInterval);
   loadSignals().catch(showError);
   scheduleRefresh();
 });
@@ -464,6 +535,17 @@ autoRefresh.addEventListener("change", () => {
   else closeLiveSocket();
 });
 
-mountChart(activeInterval);
+let resizeRaf = null;
+window.addEventListener("resize", () => {
+  if (!chartReady || lastCandles.length < 60) return;
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => requestPaint(true));
+});
+
+try {
+  initChart();
+} catch (error) {
+  showChartError(error);
+}
 loadSignals().catch(showError);
 scheduleRefresh();

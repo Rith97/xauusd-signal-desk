@@ -39,16 +39,16 @@
         <div class="chart-area">
           <div class="chart-head">
             <div>
-              <p class="label">XAUUSD &middot; TradingView live</p>
+              <p class="label">XAUUSD &middot; live candles</p>
               <strong id="lastPrice">--</strong>
             </div>
             <div class="chart-meta">
               <span id="spreadState">XAUUSD</span>
-              <span id="providerState">Signal feed: --</span>
+              <span id="providerState">Feed: --</span>
             </div>
           </div>
-          <div id="tvChart" class="tv-chart" aria-label="XAUUSD live TradingView chart">
-            <p class="tv-loading">Loading TradingView live chart&hellip;</p>
+          <div id="tvChart" class="tv-chart" aria-label="XAUUSD live candlestick chart with Entry, TP1, TP2 and SL levels">
+            <p class="tv-loading">Loading live chart&hellip;</p>
           </div>
         </div>
 
@@ -84,7 +84,6 @@
             <div class="level tp1"><span>TP1 &middot; 1R</span><strong id="tp1Level">--</strong></div>
             <div class="level entry"><span>Entry</span><strong id="entryLevel">--</strong></div>
             <div class="level sl"><span>SL</span><strong id="stopLevel">--</strong></div>
-            <div class="level-map" id="levelMap"></div>
           </div>
 
           <div class="strategy-log">
@@ -95,7 +94,7 @@
       </section>
 
       <footer>
-        Live chart streamed from TradingView (OANDA:XAUUSD). Signals are technical analysis only &mdash; real-time execution requires a low-latency broker or paid metals data feed.
+        Live candlestick chart with Entry/TP1/TP2/SL drawn on the candles. Signals are technical analysis only &mdash; real-time execution requires a low-latency broker or paid metals data feed.
       </footer>
     </main>
     <script src="/app.js" type="module"></script>

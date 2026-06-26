@@ -4,7 +4,7 @@ A small Railway-ready web app for XAUUSD candlestick analysis and multi-timefram
 
 ## Features
 
-- Live XAUUSD candlestick chart embedded from **TradingView** (`OANDA:XAUUSD`) with 1m, 5m, 15m, 30m, 1h, 4h, and 1D timeframes, EMA and RSI studies built in.
+- Live XAUUSD candlestick chart on a built-in canvas, with **Entry / TP1 / TP2 / SL drawn as price lines directly on the candles**, EMA 9/21 overlays, and 1m, 5m, 15m, 30m, 1h, 4h, and 1D timeframes.
 - Strategy engine using EMA trend, EMA momentum, RSI, MACD histogram, ATR, support/resistance, and candlestick patterns.
 - BUY, SELL, or HOLD signal with confidence, entry, stop, and take-profit levels.
 - Live signal updates over a Binance WebSocket kline stream, with throttled (≈4/s) repaints so the UI stays smooth.
@@ -12,12 +12,9 @@ A small Railway-ready web app for XAUUSD candlestick analysis and multi-timefram
 
 ## Data Sources
 
-There are two independent feeds:
+The chart and the signal engine share **one** feed, so every candle, the live price, and the Entry/TP1/TP2/SL lines all line up exactly. Candles come from the server's `/api/candles` endpoint, which by default proxies Binance `PAXGUSDT` (a gold-backed token that tracks spot gold closely) for REST history plus a Binance WebSocket kline stream for smooth live updates, because Binance does not list spot `XAUUSD` directly. The browser draws these candles, the EMA overlays, and the trade-level lines on a `<canvas>`, sized explicitly from the container so it renders reliably in every browser.
 
-- **Chart** — the live price chart is the TradingView Advanced Chart widget loaded directly in the browser, so it streams real spot gold (`OANDA:XAUUSD`) with no server-side data plumbing. Change the symbol in `public/app.js` (`TV_SYMBOL`).
-- **Signals** — the BUY/SELL/HOLD engine is computed from the server's `/api/candles` feed. The default proxy uses Binance `PAXGUSDT` (a gold-backed token that tracks spot gold closely) for REST candles plus a Binance WebSocket kline stream for live recomputation, because Binance does not list spot `XAUUSD` directly.
-
-Yahoo Finance `GC=F` is still supported as a fallback signal feed by setting `DATA_PROVIDER=yahoo`. For execution-grade low-latency spot XAUUSD signals, connect a paid real-time metals/forex data provider or your broker feed.
+Yahoo Finance `GC=F` is still supported as a fallback feed by setting `DATA_PROVIDER=yahoo`. For execution-grade low-latency spot XAUUSD signals, connect a paid real-time metals/forex data provider or your broker feed.
 
 Optional environment variables:
 
