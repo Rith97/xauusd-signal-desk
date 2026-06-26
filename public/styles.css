@@ -269,6 +269,95 @@ h1 {
   gap: 10px;
 }
 
+.levels .label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+}
+
+.side-tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.side-tag.long {
+  color: var(--buy);
+  background: rgba(31, 191, 117, 0.14);
+}
+
+.side-tag.short {
+  color: var(--sell);
+  background: rgba(226, 82, 82, 0.16);
+}
+
+.level {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left-width: 3px !important;
+  border-left-style: solid !important;
+}
+
+.level span {
+  margin-bottom: 0;
+}
+
+.level strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.level.tp2 {
+  border-left-color: #27d17c !important;
+}
+
+.level.tp2 strong {
+  color: #27d17c;
+}
+
+.level.tp1 {
+  border-left-color: var(--buy) !important;
+}
+
+.level.tp1 strong {
+  color: var(--buy);
+}
+
+.level.entry {
+  border-left-color: var(--gold) !important;
+}
+
+.level.entry strong {
+  color: var(--gold);
+}
+
+.level.sl {
+  border-left-color: var(--sell) !important;
+}
+
+.level.sl strong {
+  color: var(--sell);
+}
+
+.level-map {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 6px;
+  background: #14191d;
+}
+
+.level-map svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .strategy-log {
   border-top: 1px solid var(--line);
   padding-top: 14px;

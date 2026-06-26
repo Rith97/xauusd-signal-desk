@@ -14,7 +14,10 @@ const macdMetric = document.querySelector("#macdMetric");
 const atrMetric = document.querySelector("#atrMetric");
 const entryLevel = document.querySelector("#entryLevel");
 const stopLevel = document.querySelector("#stopLevel");
-const takeProfitLevel = document.querySelector("#takeProfitLevel");
+const tp1Level = document.querySelector("#tp1Level");
+const tp2Level = document.querySelector("#tp2Level");
+const setupSide = document.querySelector("#setupSide");
+const levelMap = document.querySelector("#levelMap");
 const strategyList = document.querySelector("#strategyList");
 const tvChart = document.querySelector("#tvChart");
 
@@ -225,8 +228,15 @@ function analyze(candles) {
 
   const direction = score >= 35 ? "BUY" : score <= -35 ? "SELL" : "HOLD";
   const confidence = Math.min(96, Math.max(35, Math.round(Math.abs(score) * 1.15)));
-  const stop = direction === "BUY" ? latest.close - atrLatest * 1.4 : direction === "SELL" ? latest.close + atrLatest * 1.4 : null;
-  const takeProfit = direction === "BUY" ? latest.close + atrLatest * 2.2 : direction === "SELL" ? latest.close - atrLatest * 2.2 : null;
+
+  // Long unless the signal is a SELL (or a bearish-leaning HOLD). Risk = 1.4 ATR;
+  // targets are projected at 1R (TP1) and 2R (TP2) from entry.
+  const bias = direction === "SELL" || (direction === "HOLD" && score < 0) ? -1 : 1;
+  const risk = atrLatest * 1.4;
+  const entry = latest.close;
+  const stop = entry - bias * risk;
+  const tp1 = entry + bias * risk * 1;
+  const tp2 = entry + bias * risk * 2;
 
   return {
     direction,
@@ -238,10 +248,53 @@ function analyze(candles) {
     rsi: rsiLatest,
     macd: macdHist,
     atr: atrLatest,
-    entry: latest.close,
+    side: bias === 1 ? "Long" : "Short",
+    entry,
     stop,
-    takeProfit
+    tp1,
+    tp2
   };
+}
+
+/* ---------- Trade-level map (SVG marker lines) ---------- */
+
+function drawLevelMap(analysis) {
+  if (!levelMap) return;
+
+  const rows = [
+    { key: "TP2", price: analysis.tp2, color: "#27d17c" },
+    { key: "TP1", price: analysis.tp1, color: "#1fbf75" },
+    { key: "Entry", price: analysis.entry, color: "#d8a83f" },
+    { key: "SL", price: analysis.stop, color: "#e25252" }
+  ].filter((row) => Number.isFinite(row.price));
+
+  const prices = rows.map((row) => row.price);
+  const max = Math.max(...prices);
+  const min = Math.min(...prices);
+  const span = max - min || 1;
+
+  const W = 320;
+  const H = 184;
+  const padY = 20;
+  const lineX1 = 12;
+  const lineX2 = 196;
+  const dotX = lineX2 + 12;
+  const yFor = (price) => padY + (1 - (price - min) / span) * (H - padY * 2);
+
+  // Vertical guide spanning the full SL-to-TP2 range.
+  const guide = `<line x1="${dotX}" y1="${yFor(max).toFixed(1)}" x2="${dotX}" y2="${yFor(min).toFixed(1)}" stroke="#303942" stroke-width="2" />`;
+
+  const items = rows.map((row) => {
+    const y = yFor(row.price).toFixed(1);
+    return (
+      `<line x1="${lineX1}" y1="${y}" x2="${lineX2}" y2="${y}" stroke="${row.color}" stroke-width="2" stroke-dasharray="6 5" />` +
+      `<circle cx="${dotX}" cy="${y}" r="3.5" fill="${row.color}" />` +
+      `<text x="${lineX1}" y="${(Number(y) - 5).toFixed(1)}" fill="${row.color}" font-size="11" font-family="sans-serif">${row.key}</text>` +
+      `<text x="${dotX + 10}" y="${(Number(y) + 4).toFixed(1)}" fill="${row.color}" font-size="12" font-weight="600" font-family="sans-serif">${fmt.format(row.price)}</text>`
+    );
+  }).join("");
+
+  levelMap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Entry, TP1, TP2 and SL price levels">${guide}${items}</svg>`;
 }
 
 /* ---------- Signal panel rendering ---------- */
@@ -273,8 +326,12 @@ function paintSignal() {
   macdMetric.textContent = analysis.macd ? analysis.macd.toFixed(2) : "--";
   atrMetric.textContent = fmt.format(analysis.atr);
   entryLevel.textContent = fmt.format(analysis.entry);
-  stopLevel.textContent = analysis.stop ? fmt.format(analysis.stop) : "--";
-  takeProfitLevel.textContent = analysis.takeProfit ? fmt.format(analysis.takeProfit) : "--";
+  stopLevel.textContent = fmt.format(analysis.stop);
+  tp1Level.textContent = fmt.format(analysis.tp1);
+  tp2Level.textContent = fmt.format(analysis.tp2);
+  setupSide.textContent = analysis.side;
+  setupSide.className = `side-tag ${analysis.side.toLowerCase()}`;
+  drawLevelMap(analysis);
 
   strategyList.innerHTML = "";
   for (const [name, value] of analysis.checks) {
