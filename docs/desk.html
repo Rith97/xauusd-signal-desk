@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>XAUUSD Signal Desk</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Gold spot market</p>
+          <h1>XAUUSD Signal Desk</h1>
+        </div>
+        <div class="status-strip">
+          <span id="connectionDot" class="dot"></span>
+          <span id="marketClock">Waiting for data</span>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="Market controls">
+        <div class="segmented" id="timeframes" role="tablist" aria-label="Timeframes">
+          <button data-interval="1m">1m</button>
+          <button data-interval="5m" class="active">5m</button>
+          <button data-interval="15m">15m</button>
+          <button data-interval="30m">30m</button>
+          <button data-interval="1h">1h</button>
+          <button data-interval="4h">4h</button>
+          <button data-interval="1d">1D</button>
+        </div>
+        <label class="toggle-row">
+          <input id="autoRefresh" type="checkbox" checked>
+          <span>Live signals</span>
+        </label>
+      </section>
+
+      <section class="workspace">
+        <div class="chart-area">
+          <div class="chart-head">
+            <div>
+              <p class="label">XAUUSD &middot; live candles</p>
+              <strong id="lastPrice">--</strong>
+            </div>
+            <div class="chart-meta">
+              <span id="spreadState">XAUUSD</span>
+              <span id="providerState">Feed: --</span>
+            </div>
+          </div>
+          <div id="tvChart" class="tv-chart" aria-label="XAUUSD live candlestick chart with Entry, TP1, TP2 and SL levels">
+            <p class="tv-loading">Loading live chart&hellip;</p>
+          </div>
+        </div>
+
+        <aside class="signal-panel">
+          <div class="signal-card" id="signalCard">
+            <p class="label">Current signal</p>
+            <h2 id="signalText">Loading</h2>
+            <p id="confidenceText" class="confidence">--</p>
+          </div>
+
+          <div class="metrics-grid">
+            <div>
+              <span>Trend</span>
+              <strong id="trendMetric">--</strong>
+            </div>
+            <div>
+              <span>RSI</span>
+              <strong id="rsiMetric">--</strong>
+            </div>
+            <div>
+              <span>MACD</span>
+              <strong id="macdMetric">--</strong>
+            </div>
+            <div>
+              <span>ATR</span>
+              <strong id="atrMetric">--</strong>
+            </div>
+          </div>
+
+          <div class="levels">
+            <p class="label">Trade levels <span id="setupSide" class="side-tag">--</span></p>
+            <div class="level tp2"><span>TP2 &middot; 2R</span><strong id="tp2Level">--</strong></div>
+            <div class="level tp1"><span>TP1 &middot; 1R</span><strong id="tp1Level">--</strong></div>
+            <div class="level entry"><span>Entry</span><strong id="entryLevel">--</strong></div>
+            <div class="level sl"><span>SL</span><strong id="stopLevel">--</strong></div>
+          </div>
+
+          <div class="strategy-log">
+            <p class="label">Strategy checks</p>
+            <ul id="strategyList"></ul>
+          </div>
+        </aside>
+      </section>
+
+      <footer>
+        Live candlestick chart (TradingView Lightweight Charts) with Entry/TP1/TP2/SL drawn on the candles. Signals are technical analysis only &mdash; real-time execution requires a low-latency broker or paid metals data feed.
+      </footer>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
