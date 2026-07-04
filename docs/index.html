@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ElePh — XAU/USD Gold Signal Terminal</title>
+<title>ElePh</title>
 <style>
   :root{
     --bg:#0b0e14; --panel:#131722; --panel2:#1b2030; --line:#232a3b;
@@ -12,26 +12,26 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:14px}
-  body{padding:18px;max-width:1320px;margin:0 auto}
+  body{padding:18px;max-width:1520px;margin:0 auto}
   .mono{font-family:'SF Mono',Consolas,Menlo,monospace}
   a{color:var(--blue)}
   /* ---------- header ---------- */
-  .header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;
-          background:linear-gradient(135deg,#131722,#0f1219);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
-  .brand{display:flex;align-items:center;gap:12px}
-  .logo{width:42px;height:42px;border-radius:10px;background:radial-gradient(circle at 35% 30%,#ffe680,#f0b90b 55%,#9a6b00);
-        display:flex;align-items:center;justify-content:center;font-weight:800;color:#3a2a00;font-size:20px;box-shadow:0 0 18px rgba(240,185,11,.35)}
-  .brand h1{font-size:16px;letter-spacing:.5px}
-  .brand .sub{font-size:11px;color:var(--muted)}
+  .header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px 28px;
+          background:linear-gradient(135deg,#131722,#0f1219);border:1px solid var(--line);border-radius:14px;padding:22px 28px}
+  .brand{display:flex;align-items:center;gap:16px}
+  .logo{width:58px;height:58px;border-radius:16px;background:radial-gradient(circle at 35% 30%,#ffe680,#f0b90b 55%,#9a6b00);
+        display:flex;align-items:center;justify-content:center;font-weight:800;color:#3a2a00;font-size:28px;box-shadow:0 0 24px rgba(240,185,11,.4)}
+  .brand h1{font-size:32px;letter-spacing:2px;font-weight:800;color:#fff;line-height:1.1}
+  .brand .sub{font-size:11px;color:var(--gold);letter-spacing:3px;font-weight:700;margin-top:3px}
   .priceblock{text-align:right}
-  .price{font-size:34px;font-weight:700;color:#fff}
-  .price .cur{color:var(--gold);font-size:18px}
-  .bidask{display:flex;gap:10px;justify-content:flex-end;font-size:12px;margin-top:4px}
-  .bidask span{background:var(--panel2);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+  .price{font-size:42px;font-weight:800;color:#fff;line-height:1.05}
+  .price .cur{color:var(--gold);font-size:22px}
+  .bidask{display:flex;gap:10px;justify-content:flex-end;font-size:12px;margin-top:8px}
+  .bidask span{background:var(--panel2);padding:5px 11px;border-radius:8px;border:1px solid var(--line)}
   .bidask b.bid{color:var(--bear)} .bidask b.ask{color:var(--bull)}
-  .change{font-size:12px;margin-top:4px}
+  .change{font-size:12px;margin-top:6px}
   .change.up{color:var(--bull)} .change.down{color:var(--bear)}
-  .meta{display:flex;align-items:center;gap:10px;margin-top:6px;justify-content:flex-end;font-size:11px;color:var(--muted)}
+  .meta{display:flex;align-items:center;gap:9px;margin-top:9px;justify-content:flex-end;font-size:11px;color:var(--muted);flex-wrap:wrap}
   .badge{padding:3px 9px;border-radius:20px;font-weight:700;font-size:11px;letter-spacing:.4px}
   .badge.live{background:rgba(38,166,154,.15);color:var(--bull);border:1px solid rgba(38,166,154,.4)}
   .badge.demo{background:rgba(240,185,11,.12);color:var(--gold);border:1px solid rgba(240,185,11,.4)}
@@ -192,10 +192,6 @@
   .s-vote{font-weight:800;font-size:10px;min-width:74px;text-align:right;letter-spacing:.5px}
   .agreebox{margin-top:10px;font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 
-  .footer{margin-top:18px;font-size:11px;color:var(--muted);line-height:1.7;text-align:center}
-  .footer b{color:var(--gold)}
-  .pillset{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:8px 0}
-  .pill{background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:11px}
   .loading{position:fixed;inset:0;background:rgba(11,14,20,.92);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:50}
   .loading .l{width:46px;height:46px;border:4px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sp 1s linear infinite}
   .hidden{display:none!important}
@@ -249,8 +245,8 @@
   <div class="brand">
     <div class="logo">🐘</div>
     <div>
-      <h1>ElePh &nbsp;·&nbsp; XAU / USD Gold Signal Terminal</h1>
-      <div class="sub">Multi-timeframe analysis · entry/SL/TP engine · candlestick scanner · learns every day 🧠</div>
+      <h1>ElePh</h1>
+      <div class="sub">XAU/USD · GOLD</div>
     </div>
   </div>
   <div class="priceblock">
@@ -361,6 +357,7 @@
           <option value="intraday">Intraday · H1</option>
           <option value="swing">Swing · D1</option>
         </select>
+        <label class="tog" style="align-self:center"><input type="checkbox" id="ctFilterTog" checked> 🛡️ Block counter-trend (ចៀសវាង Trade ច្រាសទិសដៅ)</label>
       </div>
     </div>
     <button class="btn primary" id="sigGenBtn">⚡ Generate Signal</button>
@@ -437,45 +434,9 @@
     <input type="text" id="aiQuestion" placeholder="Optional question… e.g. Should I take this setup? / តើគួរចូល trade នេះទេ?">
     <button class="btn primary" id="aiAskBtn">🤖 Analyze with Fable 5</button>
   </div>
+  <label class="tog" style="margin-top:10px"><input type="checkbox" id="aiAutoTog" checked> 🤖 <b>Auto-execute verdict</b> — when Fable 5 says TAKE, automatically lock the setup, create the signal card &amp; sync alerts</label>
   <div class="ai-out" id="aiOut"></div>
   <div class="ai-meta" id="aiMeta"></div>
-</div>
-
-<!-- FOOTER -->
-<div class="footer">
-  <div class="pillset">
-    <span class="pill">EMA 9/21 cross</span>
-    <span class="pill">RSI 14</span>
-    <span class="pill">MACD 12/26/9</span>
-    <span class="pill">Bollinger %B 20/2</span>
-    <span class="pill">Stochastic 14/3/3</span>
-    <span class="pill">ADX 14 trend filter</span>
-    <span class="pill">Candlestick patterns</span>
-    <span class="pill">ATR stop + RR targets</span>
-    <span class="pill">Real PAXG/USD candles (Binance)</span>
-    <span class="pill">💰 Position size calc</span>
-    <span class="pill">🤖 Fable 5 AI analyst</span>
-    <span class="pill">🔔 Price alerts (auto + custom)</span>
-  </div>
-  <b>How it works:</b> Each timeframe is scored by 7 strategies (EMA, RSI, MACD, Bollinger, Stochastic, candlestick pattern + ADX
-  trend filter), and the composite is dampened when ADX shows a weak/ranging market. Trade setups also report
-  <b>higher-timeframe confirmation</b> — how many bigger trends back the direction.
-  🧠 <b>ElePh learns every day:</b> each time a setup resolves (TP or SL), it records which strategies voted correctly and
-  auto-tunes their weights — and the 📚 Daily Lesson teaches you something new each day.
-  🤖 <b>ElePh AI Analyst:</b> with your own Anthropic API key, Claude <b>Fable 5</b> reads the full terminal snapshot
-  (all timeframes, the locked setup, and ElePh's learning memory) and streams back a market read — with an automatic
-  Opus 4.8 fallback if a request is declined.
-  The <b>Trade Setup</b> takes the overall bias, locks the <b>entry at the live price</b>, places the <b>stop loss</b> beyond the
-  recent swing using 1.5×ATR, and projects <b>TP1/TP2/TP3</b> at risk:reward of 1:1.5 / 1:2.5 / 1:4. The entry is
-  <b>locked and never moves</b> on refresh — only the live price updates, so you can watch price approach your levels.
-  <b>Price Alerts</b> auto-watch your SL/TP levels (plus any custom price you add) and fire via 🔊 sound, a flashing
-  screen-edge toast, and optional 💻 desktop notifications. Alerts persist across refreshes and the locked entry never moves.
-  Prices are polled every ~12s so alerts trigger promptly.
-  <br><br>
-  ⚠️ <b>Educational tool only — not financial advice.</b> When online, indicators run on <b>real OHLC candles</b> from
-  Binance PAXG/USDT (a gold-backed token that tracks spot XAU), rescaled to the live gold price; if that feed is
-  unreachable, simulated history anchored to the live price is used (badge shows REAL vs SIM OHLC).
-  Trading XAU/USD carries substantial risk. Always do your own research and use proper risk management.
 </div>
 
 <div class="toast" id="toast"></div>
@@ -721,6 +682,10 @@ const STRAT_NAMES=['EMA 9/21','RSI 14','MACD','Bollinger','Stochastic','Candlest
 const learn={ wins:0, losses:0, days:{}, strat:{} };   // strat: name -> {correct,total}
 function learnLoad(){ try{ const j=JSON.parse(localStorage.getItem(LEARN_KEY)); if(j&&typeof j==='object')Object.assign(learn,j); }catch(e){} }
 function learnSave(){ try{ localStorage.setItem(LEARN_KEY,JSON.stringify(learn)); }catch(e){} }
+function ctStrict(){   // counter-trend filter tightens itself as losses accumulate — smarter every day
+  const c=learn.ct||{wins:0,losses:0}; const t=c.wins+c.losses;
+  return t>=3 && c.losses/t>=0.6;
+}
 function learnedWeights(){
   const raw=BASE_W.map((w,i)=>{
     const s=learn.strat[STRAT_NAMES[i]]||{correct:0,total:0};
@@ -735,6 +700,8 @@ function recordOutcome(setup,win){
   learn[win?'wins':'losses']++;
   const today=new Date().toISOString().slice(0,10);
   learn.days[today]=(learn.days[today]||0)+1;
+  if(!learn.ct)learn.ct={wins:0,losses:0};
+  if(setup.counterTrend) learn.ct[win?'wins':'losses']++;   // remember how counter-trend trades actually perform
   const sign=setup.direction==='buy'?1:-1;
   setup.strategies.forEach((st,i)=>{
     if(Math.abs(st.vote)<=0.1)return;            // neutral vote gets no credit or blame
@@ -778,9 +745,13 @@ function renderLearning(){
   const wr=total?100*learn.wins/total:0;
   const w=learnedWeights();
   const days=Object.keys(learn.days).length;
+  const ct=learn.ct||{wins:0,losses:0};
+  const ctLine=(ct.wins+ct.losses)>0
+    ? ` · Counter-trend record: <b style="color:var(--bear)">${ct.wins}W/${ct.losses}L</b>${ctStrict()?' — <b style="color:var(--gold)">filter auto-tightened 🛡️</b>':''}`
+    : '';
   const head=total
     ? `Tracked <b>${total}</b> resolved setup${total>1?'s':''} over <b>${days}</b> day${days>1?'s':''} · `+
-      `<b style="color:var(--bull)">${learn.wins} W</b> / <b style="color:var(--bear)">${learn.losses} L</b> · win rate <b>${wr.toFixed(0)}%</b>`
+      `<b style="color:var(--bull)">${learn.wins} W</b> / <b style="color:var(--bear)">${learn.losses} L</b> · win rate <b>${wr.toFixed(0)}%</b>`+ctLine
     : 'No resolved setups yet — when a setup hits TP or SL, ElePh records which strategies were right and re-weights them. It learns more every day.';
   const rows=STRAT_NAMES.map((nm,i)=>{
     const s=learn.strat[nm]||{correct:0,total:0};
@@ -914,6 +885,13 @@ function generateTradeSetup(tfId){
     return direction==='buy'?sc>10:sc<-10;
   }).length;
 
+  // counter-trend check: decisive higher timeframes pointing the OPPOSITE way
+  const htfAgainst=higher.filter(t=>{
+    const sc=state.analysis[t.id]?state.analysis[t.id].score:0;
+    return direction==='buy'?sc<-10:sc>10;
+  }).length;
+  const counterTrend = higher.length>0 && ( htfAgainst>htfAgree || (ctStrict() && htfAgree*2<higher.length) );
+
   // setup grade: only A+/A confluence is worth trading if you want a high win rate
   let gpts=0;
   if(Math.abs(dirScore)>=40)gpts+=2; else if(Math.abs(dirScore)>=25)gpts+=1;
@@ -921,9 +899,10 @@ function generateTradeSetup(tfId){
   if(higher.length>0){ if(htfAgree===higher.length)gpts+=2; else if(htfAgree*2>=higher.length)gpts+=1; } else gpts+=1;
   if(patternConfirms)gpts+=1;
   if(a.adx>=25)gpts+=1;                                  // trending market — signals more reliable
+  if(counterTrend) gpts=Math.min(gpts,2);                // fighting the big trend caps the grade at C
   const grade=gpts>=7?'A+':gpts>=5?'A':gpts>=3?'B':'C';
 
-  return { tfId, direction, entry, sl, tp1, tp2, tp3, risk, grade, gradePts:gpts,
+  return { tfId, direction, entry, sl, tp1, tp2, tp3, risk, grade, gradePts:gpts, counterTrend, htfAgainst,
            rr1:1.5, rr2:2.5, rr3:4.0,
            atr:atrSafe, swingHigh, swingLow, slReason,
            dirScore, pattern:pat, patternConfirms,
@@ -1243,7 +1222,8 @@ function renderSetup(){
     `<b style="color:${s.agree>=5?'var(--bull)':s.agree<=2?'var(--bear)':'var(--neutral)'}">${s.agree}/${s.total} strategies agree</b>`+
     (s.htfTotal>0?` · <b style="color:${s.htfAgree*2>=s.htfTotal?'var(--bull)':'var(--orange)'}">HTF ${s.htfAgree}/${s.htfTotal} confirm</b>`:'')+
     (s.patternConfirms?' · <span style="color:var(--bull)">candlestick ✓ confirms</span>':' · <span style="color:var(--muted)">candlestick does not confirm</span>')+
-    (s.htfTotal>0&&s.htfAgree===0?' · <span style="color:var(--bear)">⚠ counter-trend vs higher timeframes — reduce size</span>':'');
+    (s.counterTrend?' · <b style="color:var(--bear)">🚫 COUNTER-TREND — ជៀសវាង! Higher timeframes point the other way</b>':
+     (s.htfTotal>0&&s.htfAgree===0?' · <span style="color:var(--bear)">⚠ no higher-timeframe support — reduce size</span>':''));
 
   // visual range bar: SL ... entry ... TP
   pnlEl.style.display='block';
@@ -1435,9 +1415,10 @@ let scanBusy=false;
 function loadSignals(){ try{ const j=JSON.parse(localStorage.getItem(SIG_KEY)); if(Array.isArray(j)) state.signals=j; }catch(e){} }
 function saveSignals(){ try{ localStorage.setItem(SIG_KEY,JSON.stringify(state.signals)); }catch(e){} }
 const SIG_LIFE={M1:60*60e3, M5:4*3600e3, M15:12*3600e3, M30:24*3600e3, H1:2*86400e3, H4:5*86400e3, D1:14*86400e3, W1:30*86400e3};
-function genSignal(style,risk){
+function genSignal(style,risk,forceTf){
   let tfId, auto=false;
-  if(style==='auto'){
+  if(forceTf){ tfId=forceTf; }
+  else if(style==='auto'){
     auto=true;
     const cands=['M5','M15','H1','H4','D1'];
     tfId=cands.reduce((b,t)=>Math.abs(state.analysis[t].score)>Math.abs(state.analysis[b].score)?t:b,cands[0]);
@@ -1449,7 +1430,7 @@ function genSignal(style,risk){
     48 + Math.abs(su.dirScore)*0.30 + su.agree*3.5 +
     (su.htfTotal? su.htfAgree/su.htfTotal*12 : 6) +
     (su.patternConfirms?5:0) + (a.adx>=25?4:0), 35, 95));
-  const styleLabel=auto ? ((tfId==='M1'||tfId==='M5')?'SCALPING':(tfId==='D1'||tfId==='W1')?'SWING':'INTRADAY') : style.toUpperCase();
+  const styleLabel=(auto||forceTf) ? ((tfId==='M1'||tfId==='M5')?'SCALPING':(tfId==='D1'||tfId==='W1')?'SWING':'INTRADAY') : style.toUpperCase();
   return Object.assign(su,{ id:'s'+Date.now()+Math.floor(Math.random()*999),
     target:su[tKey], targetKey:tKey, conf, risk, auto, styleLabel,
     createdAt:Date.now(), expiresAt:Date.now()+SIG_LIFE[tfId], sstatus:'ACTIVE',
@@ -1500,6 +1481,7 @@ function renderSignals(){
       <div class="sc-row"><span class="k">Confidence</span><span class="v"><span class="conf-bars">${bars}</span><span style="color:${cc}">${s.conf}%</span></span></div>
       <div class="sc-row"><span class="k">Expires</span><span class="v mono">${s.sstatus==='ACTIVE'?fmtLeft(s.expiresAt-Date.now()):'—'}</span></div>
       <div class="sc-chips">
+        ${s.ai?'<span class="sc-chip gold">🤖 FABLE 5 · '+(s.aiWin||'')+'%</span>':''}
         ${s.trending?'<span class="sc-chip gold">TRENDING</span>':''}
         ${s.auto?'<span class="sc-chip">Auto (AI picks best)</span>':''}
         <span class="sc-chip">Grade ${s.grade}</span>
@@ -1527,10 +1509,20 @@ async function generateSignal(){
   await dataP;
   CONFIG.timeframes.forEach(tf=>{ state.analysis[tf.id]=analyze(tf); });
   const sig=genSignal(style,risk);
-  state.signals.unshift(sig); state.signals=state.signals.slice(0,12);
-  saveSignals(); renderSignals(); renderHeader(); renderBias(); renderBoard();
-  setTimeout(()=>box.classList.remove('show'),800);
-  toast('⚡ '+sig.direction.toUpperCase()+' signal @ '+fmt(sig.entry)+' · confidence '+sig.conf+'% · grade '+sig.grade);
+  if(state.prefs.ctFilter!==false && sig.counterTrend){
+    // 🛡️ avoid counter-trend trades — they are the losing ones
+    const d=document.createElement('div'); d.className='scan-step on';
+    d.innerHTML='<span class="ic" style="background:rgba(239,83,80,.18);color:var(--bear)">✕</span> <b style="color:var(--bear)">Counter-trend detected — trade blocked (ជៀសវាងការខាតបង់)</b>';
+    stepsEl.appendChild(d);
+    toast('🚫 ប្លុក! '+sig.direction.toUpperCase()+' '+sig.tfId+' ច្រាសទិសដៅ Higher TF ('+sig.htfAgainst+' against) — no signal created');
+    setTimeout(()=>box.classList.remove('show'),3500);
+  } else {
+    state.signals.unshift(sig); state.signals=state.signals.slice(0,12);
+    saveSignals(); renderSignals();
+    setTimeout(()=>box.classList.remove('show'),800);
+    toast('⚡ '+sig.direction.toUpperCase()+' signal @ '+fmt(sig.entry)+' · confidence '+sig.conf+'% · grade '+sig.grade);
+  }
+  renderHeader(); renderBias(); renderBoard();
   scanBusy=false; btn.disabled=false; btn.innerHTML='⚡ Generate Signal';
 }
 
@@ -1586,7 +1578,35 @@ const AI_SYSTEM=
   '4) HIGH-WIN-RATE PLAYBOOK — the exact conditions under which this trader should enter (e.g. which grade, HTF confirm count, ADX level, pattern confirmation), and what would invalidate the idea. Discipline rules: only A+/A grades, risk ≤1-2%, skip everything else. '+
   'Be direct and specific. Keep it under about 300 words. '+
   'If the user asks in Khmer, answer in Khmer; otherwise answer in the language of the question, defaulting to English. '+
-  'End with one short line reminding this is educational analysis, not financial advice — no win rate is ever guaranteed.';
+  'End with one short line reminding this is educational analysis, not financial advice — no win rate is ever guaranteed. '+
+  'OUTPUT CONTRACT: the very last line of your reply must be exactly this machine-readable format and nothing else: '+
+  'DECISION: TAKE|WAIT|SKIP | DIR: BUY|SELL | TF: <one of M1,M5,M15,M30,H1,H4,D1,W1> | WINRATE: <integer>% '+
+  '— pick the single best timeframe for the idea, use your honest TP1-before-SL probability for WINRATE, and say TAKE only for A+/A-quality confluence.';
+function applyAiVerdict(text){
+  const m=text.match(/DECISION:\s*(TAKE|WAIT|SKIP)[^\n]*?DIR:\s*(BUY|SELL)[^\n]*?TF:\s*(M15|M30|M1|M5|H1|H4|D1|W1)\b[^\n]*?WINRATE:\s*(\d{1,3})/i);
+  if(!m){ toast('🤖 No machine verdict in the reply — nothing auto-executed'); return; }
+  const dec=m[1].toUpperCase(), dir=m[2].toUpperCase(), tf=m[3].toUpperCase(), win=+m[4];
+  const meta=$('aiMeta'); if(meta) meta.textContent+=' · verdict: '+dec+' '+dir+' '+tf+' ('+win+'%)';
+  if(dec!=='TAKE'){ toast('🤖 Fable 5 verdict: '+dec+' — no trade auto-created'); return; }
+  const su=generateTradeSetup(tf);
+  if(su.direction.toUpperCase()!==dir){
+    toast('🤖 Conflict: Fable 5 says '+dir+' but the engine computes '+su.direction.toUpperCase()+' on '+tf+' — auto-trade skipped for safety');
+    return;
+  }
+  if(state.prefs.ctFilter!==false && su.counterTrend){
+    toast('🚫 Auto-trade blocked: '+dir+' '+tf+' ច្រាសទិសដៅ Higher TF — counter-trend filter 🛡️');
+    return;
+  }
+  // AUTO: lock the terminal setup, sync alerts, and drop an AI-tagged signal card
+  state.tradeSetup=su;
+  Alerts.syncFromSetup(su);
+  const risk=$('sigRisk')?$('sigRisk').value:'medium';
+  const sig=genSignal(null,risk,tf);
+  sig.ai=true; sig.aiWin=win; sig.conf=Math.round(clamp(win,35,95));
+  state.signals.unshift(sig); state.signals=state.signals.slice(0,12);
+  saveSignals(); renderSignals(); renderSetup(); renderChart(); Alerts.render();
+  toast('🤖 AUTO-EXECUTED: '+dir+' '+tf+' @ '+fmt(sig.entry)+' locked from Fable 5 verdict · alerts synced 🔔');
+}
 async function askAI(){
   if(aiBusy) return;
   const out=$('aiOut'), meta=$('aiMeta'), btn=$('aiAskBtn');
@@ -1617,6 +1637,7 @@ async function askAI(){
       const servedBy=final.model||'claude-fable-5';
       const u=final.usage||{};
       meta.textContent='Model: '+servedBy+' · '+(u.input_tokens||0)+' in / '+(u.output_tokens||0)+' out tokens · '+new Date().toLocaleTimeString();
+      if(state.prefs.aiAuto!==false) applyAiVerdict(out.textContent);   // 🤖 auto-execute the verdict
     }
   }catch(e){
     const A=AnthropicSDK;
@@ -1648,6 +1669,9 @@ function initAI(){
   };
   $('aiAskBtn').onclick=askAI;
   $('aiQuestion').addEventListener('keydown',e=>{ if(e.key==='Enter')askAI(); });
+  const at=$('aiAutoTog');
+  at.checked=state.prefs.aiAuto!==false;
+  at.onchange=()=>{ state.prefs.aiAuto=at.checked; Alerts.save(); toast(at.checked?'🤖 Auto-execute ON':'Auto-execute OFF — analysis only'); };
 }
 
 /* ============================================================
@@ -1720,6 +1744,9 @@ async function init(){
   // --- signal generator ---
   loadSignals();
   $('sigGenBtn').onclick=generateSignal;
+  const ctTog=$('ctFilterTog');
+  ctTog.checked=state.prefs.ctFilter!==false;
+  ctTog.onchange=()=>{ state.prefs.ctFilter=ctTog.checked; Alerts.save(); toast(ctTog.checked?'🛡️ Counter-trend filter ON — ចៀសវាងការខាតបង់':'Counter-trend filter OFF — trade at your own risk ⚠️'); };
 
   try{ await loadData(true); }catch(e){ /* guaranteed not to throw due to fallback */ }
   state.selected='H1';
