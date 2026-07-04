@@ -18,7 +18,10 @@
   /* ---------- header ---------- */
   .header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px 28px;
           background:linear-gradient(135deg,#131722,#0f1219);border:1px solid var(--line);border-radius:14px;padding:22px 28px}
-  .brand{display:flex;align-items:center;gap:16px}
+  .brand{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .symsel{margin-left:14px;background:var(--panel2);border:1px solid var(--line);color:#fff;font-weight:700;font-size:15px;
+          padding:11px 14px;border-radius:11px;cursor:pointer;font-family:inherit}
+  .symsel:hover,.symsel:focus{outline:none;border-color:var(--gold)}
   .logo{width:58px;height:58px;border-radius:16px;background:radial-gradient(circle at 35% 30%,#ffe680,#f0b90b 55%,#9a6b00);
         display:flex;align-items:center;justify-content:center;font-weight:800;color:#3a2a00;font-size:28px;box-shadow:0 0 24px rgba(240,185,11,.4)}
   .brand h1{font-size:32px;letter-spacing:2px;font-weight:800;color:#fff;line-height:1.1}
@@ -123,6 +126,8 @@
   .siggen{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
   .sig-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .sig-controls select{min-width:170px}
+  .guardbar{margin-top:11px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:12px;color:var(--text)}
+  .guard-togs{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
   .scanbox{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:none}
   .scanbox.show{display:block}
   .scan-title{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:#dfe3ea;margin-bottom:8px}
@@ -237,7 +242,7 @@
 
 <div class="loading" id="loading">
   <div class="l"></div>
-  <div style="color:var(--muted)">Loading live gold market data…</div>
+  <div style="color:var(--muted)" id="loadingMsg">Loading live market data…</div>
 </div>
 
 <!-- HEADER -->
@@ -246,8 +251,15 @@
     <div class="logo">🐘</div>
     <div>
       <h1>ElePh</h1>
-      <div class="sub">XAU/USD · GOLD</div>
+      <div class="sub" id="brandSub">XAU/USD · GOLD</div>
     </div>
+    <select id="symSel" class="symsel" title="Choose symbol">
+      <option value="XAUUSD">🥇 XAUUSD</option>
+      <option value="BTCUSD">₿ BTCUSD</option>
+      <option value="ETHUSD">Ξ ETHUSD</option>
+      <option value="SOLUSD">◎ SOLUSD</option>
+      <option value="XRPUSD">✕ XRPUSD</option>
+    </select>
   </div>
   <div class="priceblock">
     <div class="price"><span class="cur">$</span><span id="price">—</span></div>
@@ -359,6 +371,12 @@
         </select>
         <label class="tog" style="align-self:center"><input type="checkbox" id="ctFilterTog" checked> 🛡️ Block counter-trend (ចៀសវាង Trade ច្រាសទិសដៅ)</label>
       </div>
+      <div class="guardbar" id="guardBar"></div>
+      <div class="guard-togs">
+        <label class="tog"><input type="checkbox" id="gTogGrade" checked> 💎 A-grades only</label>
+        <label class="tog"><input type="checkbox" id="gTogDaily" checked> 🔒 Stop day at −3R</label>
+        <label class="tog"><input type="checkbox" id="gTogCool" checked> ⏳ Cooldown after 2 losses</label>
+      </div>
     </div>
     <button class="btn primary" id="sigGenBtn">⚡ Generate Signal</button>
   </div>
@@ -460,12 +478,20 @@ const CONFIG = {
   trendWeight:{M1:0.5, M5:0.6, M15:0.8, M30:1.0, H1:1.5, H4:2.0, D1:2.5, W1:3.0}
 };
 const COLORS={bull:'#26a69a',bear:'#ef5350',blue:'#3b82f6',orange:'#f59e0b',gold:'#f0b90b',neutral:'#8b93a7'};
+const SYMBOLS={
+  XAUUSD:{label:'XAUUSD', name:'Gold',     icon:'🥇', binance:'PAXGUSDT', dec:2, demo:4150},
+  BTCUSD:{label:'BTCUSD', name:'Bitcoin',  icon:'₿',  binance:'BTCUSDT',  dec:2, demo:95000},
+  ETHUSD:{label:'ETHUSD', name:'Ethereum', icon:'Ξ',  binance:'ETHUSDT',  dec:2, demo:3300},
+  SOLUSD:{label:'SOLUSD', name:'Solana',   icon:'◎',  binance:'SOLUSDT',  dec:2, demo:150},
+  XRPUSD:{label:'XRPUSD', name:'XRP',      icon:'✕',  binance:'XRPUSDT',  dec:4, demo:2.2},
+};
+const SYM=()=>SYMBOLS[state.symbol]||SYMBOLS.XAUUSD;
 
 /* ============================================================
    STATE
 ============================================================ */
-const state={ price:0, bid:0, ask:0, src:'demo', priceBase:null, series:{}, analysis:{}, selected:'H1', prevClose:0, tradeSetup:null,
-              alerts:[], signals:[], prefs:{sound:true, desktop:false} };
+const state={ symbol:'XAUUSD', price:0, bid:0, ask:0, src:'demo', priceBase:null, series:{}, analysis:{}, selected:'H1', prevClose:0, tradeSetup:null,
+              setupsBySym:{}, alerts:[], signals:[], prefs:{sound:true, desktop:false} };
 
 /* ============================================================
    MATH HELPERS
@@ -686,6 +712,36 @@ function ctStrict(){   // counter-trend filter tightens itself as losses accumul
   const c=learn.ct||{wins:0,losses:0}; const t=c.wins+c.losses;
   return t>=3 && c.losses/t>=0.6;
 }
+/* ---- 🛡️ Risk Guardian: the discipline layer that protects the account ---- */
+function guardData(){
+  const today=new Date().toISOString().slice(0,10);
+  if(!learn.guard||learn.guard.day!==today){
+    const prev=learn.guard||{};
+    learn.guard={day:today, dayR:0, wins:0, losses:0, streak:prev.streak||0, cooldownUntil:prev.cooldownUntil||0};
+  }
+  return learn.guard;
+}
+function guardAllows(grade){
+  const g=guardData();
+  if(state.prefs.gDaily!==false && g.dayR<=-3)
+    return {ok:false, reason:'🔒 Daily loss limit hit ('+g.dayR.toFixed(1)+'R) — no more trades today. ការពារដើមទុន!'};
+  if(state.prefs.gCool!==false && Date.now()<g.cooldownUntil)
+    return {ok:false, reason:'⏳ Cooldown after '+g.streak+' straight losses — '+fmtLeft(g.cooldownUntil-Date.now())+' left. No revenge trading!'};
+  if(state.prefs.gGrade!==false && grade!=='A+' && grade!=='A')
+    return {ok:false, reason:'💎 Grade '+grade+' blocked — only A / A+ setups are allowed (high win-rate discipline)'};
+  return {ok:true};
+}
+function renderGuard(){
+  const el=$('guardBar'); if(!el)return;
+  const g=guardData();
+  const locked=state.prefs.gDaily!==false && g.dayR<=-3;
+  const cooling=state.prefs.gCool!==false && Date.now()<g.cooldownUntil;
+  const st= locked ? '<b style="color:var(--bear)">🔒 LOCKED for today — protect your capital (ការពារដើមទុន)</b>'
+          : cooling ? '<b style="color:var(--orange)">⏳ Cooldown — '+fmtLeft(g.cooldownUntil-Date.now())+' left after '+g.streak+' straight losses</b>'
+          : '<b style="color:var(--bull)">✅ Trading allowed</b>';
+  el.innerHTML='🛡️ <b>Risk Guardian</b> · Today: <b style="color:'+(g.dayR>=0?'var(--bull)':'var(--bear)')+'">'+
+    (g.dayR>=0?'+':'')+g.dayR.toFixed(1)+'R</b> · '+g.wins+'W / '+g.losses+'L · loss streak '+g.streak+' · '+st;
+}
 function learnedWeights(){
   const raw=BASE_W.map((w,i)=>{
     const s=learn.strat[STRAT_NAMES[i]]||{correct:0,total:0};
@@ -702,6 +758,16 @@ function recordOutcome(setup,win){
   learn.days[today]=(learn.days[today]||0)+1;
   if(!learn.ct)learn.ct={wins:0,losses:0};
   if(setup.counterTrend) learn.ct[win?'wins':'losses']++;   // remember how counter-trend trades actually perform
+  // 🛡️ Risk Guardian bookkeeping (R multiples: win = +RR of the target, loss = −1R)
+  const g=guardData();
+  const rr=setup.targetKey==='tp2'?2.5:setup.targetKey==='tp3'?4:1.5;
+  if(win){ g.dayR+=rr; g.wins++; g.streak=0; }
+  else {
+    g.dayR-=1; g.losses++; g.streak++;
+    if(g.streak>=2){ g.cooldownUntil=Date.now()+4*3600e3; toast('⏳ '+g.streak+' straight losses — 4h cooldown started. No revenge trading!'); }
+    if(state.prefs.gDaily!==false && g.dayR<=-3) toast('🔒 Daily loss limit hit — trading locked until tomorrow. ការពារដើមទុន!');
+  }
+  renderGuard();
   const sign=setup.direction==='buy'?1:-1;
   setup.strategies.forEach((st,i)=>{
     if(Math.abs(st.vote)<=0.1)return;            // neutral vote gets no credit or blame
@@ -959,7 +1025,7 @@ async function fetchKlines(tfId,limit=140){
   for(const h of hosts){
     try{
       const r=await Promise.race([
-        fetch(`${h}/api/v3/klines?symbol=PAXGUSDT&interval=${BINANCE_INTERVAL[tfId]}&limit=${limit}`,{cache:'no-store'}),
+        fetch(`${h}/api/v3/klines?symbol=${SYM().binance}&interval=${BINANCE_INTERVAL[tfId]}&limit=${limit}`,{cache:'no-store'}),
         new Promise((_,rj)=>setTimeout(()=>rj(0),8000))
       ]);
       if(!r.ok)throw 0; const j=await r.json();
@@ -987,14 +1053,27 @@ async function loadRealCandles(price){
   state.realCandles=ok>0; state.realTfCount=ok;
   return ok;
 }
-function demoPriceInitial(){ state.priceBase=4100+Math.random()*140; return state.priceBase; }
-function nextDemoPrice(){ if(state.priceBase==null)state.priceBase=4100+Math.random()*140; state.priceBase+=randn()*1.8; return state.priceBase; }
+async function fetchBinanceTicker(){
+  const host=klineHost||KLINE_HOSTS[0];
+  const r=await fetch(host+'/api/v3/ticker/bookTicker?symbol='+SYM().binance,{cache:'no-store'});
+  if(!r.ok)throw 0; const j=await r.json();
+  const bid=+j.bidPrice, ask=+j.askPrice;
+  if(!Number.isFinite(bid)||!Number.isFinite(ask)||bid<=0)throw 0;
+  return {price:(bid+ask)/2, bid, ask, src:'LIVE · Binance'};
+}
+function demoPriceInitial(){ state.priceBase=SYM().demo*(1+(Math.random()-0.5)*0.02); return state.priceBase; }
+function nextDemoPrice(){ if(state.priceBase==null)demoPriceInitial(); state.priceBase+=randn()*state.priceBase*0.00045; return state.priceBase; }
 async function loadData(isInitial){
   let price=null, src='DEMO (offline)', bid=0, ask=0, ts=null;
   try{
-    const g=await Promise.race([fetchGoldApi(),timeout(6000).then(()=>{throw 0})]);
-    price=g.price; src=g.src||'LIVE · gold-api.com'; ts=g.ts;
-    try{ const s=await fetchSwissquote(); bid=s.bid; ask=s.ask; }catch(e){}
+    if(state.symbol==='XAUUSD'){
+      const g=await Promise.race([fetchGoldApi(),timeout(6000).then(()=>{throw 0})]);
+      price=g.price; src=g.src||'LIVE · gold-api.com'; ts=g.ts;
+      try{ const s=await fetchSwissquote(); bid=s.bid; ask=s.ask; }catch(e){}
+    } else {
+      const t=await Promise.race([fetchBinanceTicker(),timeout(6000).then(()=>{throw 0})]);
+      price=t.price; bid=t.bid; ask=t.ask; src=t.src;
+    }
   }catch(e){
     price=isInitial?demoPriceInitial():nextDemoPrice(); src='DEMO (offline)';
   }
@@ -1017,11 +1096,12 @@ function timeout(ms){ return new Promise(r=>setTimeout(r,ms)); }
 /* ============================================================
    RENDER
 ============================================================ */
-function fmt(n,d=2){ return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function fmt(n,d){ if(d==null)d=SYM().dec; return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function renderHeader(){
+  const bs=$('brandSub'); if(bs)bs.textContent=SYM().label.slice(0,3)+'/USD · '+SYM().name.toUpperCase();
   $('price').textContent=fmt(state.price);
   $('bid').textContent=fmt(state.bid); $('ask').textContent=fmt(state.ask);
-  $('spread').textContent=fmt(state.ask-state.bid,2);
+  $('spread').textContent=fmt(state.ask-state.bid);
   const ch=state.price-state.prevClose, pct=ch/state.prevClose*100;
   const ce=$('change');
   ce.textContent=(ch>=0?'▲ +':'▼ ')+fmt(Math.abs(ch))+'  ('+(ch>=0?'+':'')+pct.toFixed(2)+'%) vs prev daily close';
@@ -1085,6 +1165,7 @@ function renderChart(){
   const candles=state.series[tf.id]; const closes=candles.map(c=>c.close);
   const e9=ema(closes,9),e21=ema(closes,21),bb=bollinger(closes,20,2);
   const cv=$('chart'); const ctx=cv.getContext('2d');
+  const dp=SYM().dec;
   const dpr=window.devicePixelRatio||1; const cssW=cv.parentElement.clientWidth-28; const cssH=420;
   cv.width=cssW*dpr; cv.height=cssH*dpr; cv.style.width=cssW+'px'; cv.style.height=cssH+'px';
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
@@ -1109,7 +1190,7 @@ function renderChart(){
   for(let g=0;g<=lines;g++){
     const p=minP+(maxP-minP)*g/lines, yy=y(p);
     ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(padL+plotW,yy); ctx.stroke();
-    ctx.fillStyle='#6b7280'; ctx.fillText(p.toFixed(2), padL+plotW+6, yy+3);
+    ctx.fillStyle='#6b7280'; ctx.fillText(p.toFixed(dp), padL+plotW+6, yy+3);
   }
   // bollinger fill
   ctx.beginPath();
@@ -1132,10 +1213,10 @@ function renderChart(){
   if(state.tradeSetup){
     const s=state.tradeSetup;
     const lvls=[
-      {p:s.tp2,label:'TP2 '+s.tp2.toFixed(2),color:COLORS.bull,alpha:0.55},
-      {p:s.tp1,label:'TP1 '+s.tp1.toFixed(2),color:COLORS.bull,alpha:0.8},
-      {p:s.sl, label:'SL  '+s.sl.toFixed(2), color:COLORS.bear,alpha:0.9},
-      {p:s.entry,label:'ENTRY '+s.entry.toFixed(2)+' (locked)',color:COLORS.gold,alpha:1},
+      {p:s.tp2,label:'TP2 '+s.tp2.toFixed(dp),color:COLORS.bull,alpha:0.55},
+      {p:s.tp1,label:'TP1 '+s.tp1.toFixed(dp),color:COLORS.bull,alpha:0.8},
+      {p:s.sl, label:'SL  '+s.sl.toFixed(dp), color:COLORS.bear,alpha:0.9},
+      {p:s.entry,label:'ENTRY '+s.entry.toFixed(dp)+' (locked)',color:COLORS.gold,alpha:1},
     ];
     lvls.forEach(lv=>{
       const yy=y(lv.p);
@@ -1150,7 +1231,7 @@ function renderChart(){
   const last=view[N-1].close, yl=y(last);
   ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(padL,yl); ctx.lineTo(padL+plotW,yl); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle='#fff'; ctx.fillRect(padL+plotW,yl-9,padR,18);
-  ctx.fillStyle='#0b0e14'; ctx.textAlign='left'; ctx.fillText(last.toFixed(2), padL+plotW+6, yl+3);
+  ctx.fillStyle='#0b0e14'; ctx.textAlign='left'; ctx.fillText(last.toFixed(dp), padL+plotW+6, yl+3);
   renderRsi(closes);
 }
 function renderRsi(closes){
@@ -1194,8 +1275,14 @@ function renderSetup(){
     return;
   }
   lockEl.style.display='inline-flex';
-  dirEl.textContent = s.direction==='buy'?'▲ BUY':'▼ SELL';
-  dirEl.className='dir-badge '+(s.direction==='buy'?'buy':'sell');
+  // conviction: how much to TRUST this direction. Weak signals reverse easily — say so honestly.
+  const av=Math.abs(s.dirScore);
+  const conviction = (s.grade==='C'||av<20||s.counterTrend) ? 'LOW'
+                   : (s.grade==='A+'||s.grade==='A') && av>=40 ? 'HIGH' : 'MEDIUM';
+  const cvColor = conviction==='HIGH'?'var(--bull)':conviction==='MEDIUM'?'var(--gold)':'var(--bear)';
+  dirEl.textContent = (s.direction==='buy'?'▲ BUY':'▼ SELL')+' · '+conviction+' conviction';
+  dirEl.className='dir-badge '+(conviction==='LOW'?'none':(s.direction==='buy'?'buy':'sell'));
+  dirEl.style.color=cvColor;
   genEl.textContent='Locked '+s.generated.toLocaleTimeString()+' · TF '+s.tfId+' · score '+(s.dirScore>=0?'+':'')+s.dirScore.toFixed(0)+' · '+s.status;
 
   const price=state.price;
@@ -1215,6 +1302,7 @@ function renderSetup(){
   const gc=(s.grade==='A+'||s.grade==='A')?'var(--bull)':s.grade==='B'?'var(--orange)':'var(--bear)';
   const gtip=s.grade==='A+'?'high-conviction, tradeable':s.grade==='A'?'good, use smaller size':s.grade==='B'?'mixed — better to wait':'weak — skip this one';
   noteEl.innerHTML =
+    (conviction==='LOW'?`<div style="color:var(--bear);font-weight:700;margin-bottom:6px">⚠️ LOW-CONVICTION ${s.direction.toUpperCase()} — this can reverse. Not a confident call. Better to WAIT for a grade A/A+ setup (សញ្ញាខ្សោយ អាចប្រែទិស)</div>`:'')+
     (s.grade?`💎 Setup grade <b style="color:${gc};font-size:14px">${s.grade}</b> <span style="color:var(--muted)">(${gtip} · ${s.gradePts}/8 confluence pts)</span> · `:'')+
     `Live price <b class="mono" style="color:#fff">${fmt(price)}</b> · `+
     `P/L <b class="mono" style="color:${lc}">${livePts>=0?'+':''}${livePts.toFixed(2)} pts (${liveR>=0?'+':''}${liveR.toFixed(2)}R)</b> · `+
@@ -1246,8 +1334,15 @@ function renderPosSize(){
   const bal=parseFloat($('psBalance').value)||0, riskPct=parseFloat($('psRisk').value)||0;
   if(!s||!s.risk||bal<=0||riskPct<=0){ out.textContent='—'; return; }
   const riskUsd=bal*riskPct/100;
-  const lots=riskUsd/(s.risk*100);           // 1 lot XAU = 100 oz → $100 per $1.00 move
-  out.innerHTML=`Risk <b>$${fmt(riskUsd)}</b> → <b>${Math.max(0.01,lots).toFixed(2)} lots</b> (${(lots*100).toFixed(1)} oz) @ SL ${fmt(s.risk)} pts`;
+  if(state.symbol==='XAUUSD'){
+    const lots=riskUsd/(s.risk*100);         // 1 lot XAU = 100 oz → $100 per $1.00 move
+    out.innerHTML=`Risk <b>$${fmt(riskUsd,2)}</b> → <b>${Math.max(0.01,lots).toFixed(2)} lots</b> (${(lots*100).toFixed(1)} oz) @ SL ${fmt(s.risk)} pts`;
+  } else {
+    const units=riskUsd/s.risk;              // crypto: position size in coins
+    const base=SYM().label.slice(0,3);
+    out.innerHTML=`Risk <b>$${fmt(riskUsd,2)}</b> → <b>${units<1?units.toFixed(5):units.toFixed(3)} ${base}</b> (≈$${fmt(units*state.price,2)}) @ SL ${fmt(s.risk)} pts`;
+  }
+  if(riskPct>2) out.innerHTML+=` <b style="color:var(--bear)">⚠️ ${riskPct}% per trade is how 20% nights happen — use 1–2% max! (ហានិភ័យខ្ពស់ពេក)</b>`;
 }
 function renderAnalysis(){
   const tf=state.selected; $('anaTf').textContent=tf;
@@ -1285,7 +1380,7 @@ function renderAnalysis(){
   $('stratList').innerHTML = rows +
     `<div class="agreebox"><b style="color:${aligned>=5?'var(--bull)':aligned<=2?'var(--bear)':'var(--neutral)'}">${aligned}/${strs.length}</b> strategies align with the <b>${tf}</b> signal (${sigFromScore(a.score).label}).</div>`;
 }
-function renderAll(){ renderHeader(); renderBias(); renderSetup(); renderBoard(); renderTabs(); renderChart(); renderIndicators(); renderAnalysis(); renderLearning(); renderSignals(); Alerts.render(); }
+function renderAll(){ renderHeader(); renderBias(); renderSetup(); renderBoard(); renderTabs(); renderChart(); renderIndicators(); renderAnalysis(); renderLearning(); renderSignals(); renderGuard(); Alerts.render(); }
 
 /* ============================================================
    PRICE ALERTS  (auto trade-level + custom ; sound + visual + desktop)
@@ -1332,7 +1427,7 @@ const Alerts={
   },
   save(){ try{ localStorage.setItem(ALERT_KEY,JSON.stringify(state.alerts)); localStorage.setItem(PREF_KEY,JSON.stringify(state.prefs)); }catch(e){} },
   _make(label,price,dir,source){
-    return { id:'a'+Date.now()+Math.floor(Math.random()*99999), source, label, price, dir, status:'active', createdAt:Date.now(), triggeredAt:null };
+    return { id:'a'+Date.now()+Math.floor(Math.random()*99999), sym:state.symbol, source, label, price, dir, status:'active', createdAt:Date.now(), triggeredAt:null };
   },
   add(a){ state.alerts.unshift(this._make(a.label,a.price,a.dir,a.source)); this.save(); this.render(); },
   remove(id){ state.alerts=state.alerts.filter(x=>x.id!==id); this.save(); this.render(); },
@@ -1340,7 +1435,8 @@ const Alerts={
   clearAll(){ state.alerts=[]; this.save(); this.render(); },
   syncFromSetup(s){
     if(!s)return;
-    state.alerts=state.alerts.filter(x=>x.source!=='auto');     // drop stale auto alerts, keep custom
+    // drop stale auto alerts for THIS symbol only; keep customs and other symbols' alerts
+    state.alerts=state.alerts.filter(x=>!(x.source==='auto' && (x.sym||'XAUUSD')===state.symbol));
     const above=s.direction==='buy';
     const auto=[
       {label:'SL hit',   price:s.sl, dir: above?'below':'above'},
@@ -1356,6 +1452,7 @@ const Alerts={
     const fired=[];
     state.alerts.forEach(a=>{
       if(a.status!=='active')return;
+      if((a.sym||'XAUUSD')!==state.symbol)return;   // price stream is for the current symbol only
       const hit = a.dir==='above' ? price>=a.price : price<=a.price;
       if(hit){ a.status='triggered'; a.triggeredAt=Date.now(); fired.push(a); }
     });
@@ -1366,7 +1463,7 @@ const Alerts={
     }
   },
   notify(a,price){
-    const msg='🔔 ALERT: '+a.label+' — XAU '+a.dir+' '+fmt(a.price)+' (now '+fmt(price)+')';
+    const msg='🔔 ALERT: '+a.label+' — '+(a.sym||'XAUUSD')+' '+a.dir+' '+fmt(a.price)+' (now '+fmt(price)+')';
     toast(msg,true);
     if(state.prefs.sound) playBeep();
     flashScreen(a.label.indexOf('SL')>=0?'bear':'bull');
@@ -1375,17 +1472,18 @@ const Alerts={
         new Notification('🔔 Gold Alert', {body:a.label+' · price '+fmt(price)}); }catch(e){}
     }
   },
-  activeCount(){ return state.alerts.filter(a=>a.status==='active').length; },
+  activeCount(){ return state.alerts.filter(a=>a.status==='active' && (a.sym||'XAUUSD')===state.symbol).length; },
   render(){
     const wrap=$('alertList'); if(!wrap)return;
+    const list=state.alerts.filter(a=>(a.sym||'XAUUSD')===state.symbol);
     const badge=$('alertBadge'); const n=this.activeCount();
     if(badge){ badge.textContent=n; badge.style.display=n>0?'inline-block':'none'; }
-    if(!state.alerts.length){
-      wrap.innerHTML='<div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">No alerts yet. Generate a setup to auto-add SL/TP alerts, or add a custom price alert above.</div>';
+    if(!list.length){
+      wrap.innerHTML='<div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">No alerts for '+SYM().label+' yet. Generate a setup to auto-add SL/TP alerts, or add a custom price alert above.</div>';
       const f=$('alertFoot'); if(f)f.textContent='';
       return;
     }
-    wrap.innerHTML=state.alerts.map(a=>{
+    wrap.innerHTML=list.map(a=>{
       const trig=a.status==='triggered';
       const arrow=a.dir==='above'?'▲':'▼';
       const col=a.dir==='above'?'var(--bull)':'var(--bear)';
@@ -1402,8 +1500,8 @@ const Alerts={
         </div></div>`;
     }).join('');
     wrap.querySelectorAll('.ax').forEach(b=>b.onclick=()=>this.remove(b.dataset.id));
-    const tr=state.alerts.length-n;
-    const f=$('alertFoot'); if(f) f.textContent=n+' active · '+tr+' triggered · '+state.alerts.length+' total';
+    const tr=list.length-n;
+    const f=$('alertFoot'); if(f) f.textContent=SYM().label+': '+n+' active · '+tr+' triggered · '+list.length+' total';
   }
 };
 
@@ -1432,7 +1530,7 @@ function genSignal(style,risk,forceTf){
     (su.patternConfirms?5:0) + (a.adx>=25?4:0), 35, 95));
   const styleLabel=(auto||forceTf) ? ((tfId==='M1'||tfId==='M5')?'SCALPING':(tfId==='D1'||tfId==='W1')?'SWING':'INTRADAY') : style.toUpperCase();
   return Object.assign(su,{ id:'s'+Date.now()+Math.floor(Math.random()*999),
-    target:su[tKey], targetKey:tKey, conf, risk, auto, styleLabel,
+    sym:state.symbol, target:su[tKey], targetKey:tKey, conf, risk, auto, styleLabel,
     createdAt:Date.now(), expiresAt:Date.now()+SIG_LIFE[tfId], sstatus:'ACTIVE',
     trending:a.adx>=25 });
 }
@@ -1441,6 +1539,7 @@ function evalSignals(price){
   state.signals.forEach(s=>{
     if(s.sstatus!=='ACTIVE') return;
     if(Date.now()>s.expiresAt){ s.sstatus='EXPIRED'; changed=true; return; }
+    if((s.sym||'XAUUSD')!==state.symbol) return;   // only judge against the matching price stream
     const up=s.direction==='buy';
     if(up? price<=s.sl : price>=s.sl){ s.sstatus='STOPPED'; changed=true; recordOutcome(s,false); }
     else if(up? price>=s.target : price<=s.target){ s.sstatus='TP HIT'; changed=true; recordOutcome(s,true); }
@@ -1467,17 +1566,18 @@ function renderSignals(){
     const cc=s.conf>=75?'var(--bull)':s.conf>=50?'var(--gold)':'var(--bear)';
     const filled=Math.max(1,Math.round(s.conf/20));
     const bars=[0,1,2,3,4].map(i=>`<i style="height:${6+i*2}px${i<filled?';background:'+cc:''}"></i>`).join('');
+    const SD=SYMBOLS[s.sym||'XAUUSD']||SYMBOLS.XAUUSD;
     return `<div class="sigcard ${up?'buy':'sell'}">
       <div class="sc-head">
-        <div class="sc-sym"><div class="sc-ico">🥇</div>
-          <div><div style="font-weight:800;font-size:15px">XAUUSD</div>
-          <div style="font-size:11px;color:var(--muted)">Gold · ${s.tfId}</div></div></div>
+        <div class="sc-sym"><div class="sc-ico">${SD.icon}</div>
+          <div><div style="font-weight:800;font-size:15px">${SD.label}</div>
+          <div style="font-size:11px;color:var(--muted)">${SD.name} · ${s.tfId}</div></div></div>
         <div class="sc-style">${s.styleLabel}</div>
       </div>
       <div class="sc-dir"><span class="${up?'b':'r'}">● ${up?'BUY':'SELL'}</span></div>
-      <div class="sc-row"><span class="k">Entry</span><span class="v mono">${fmt(s.entry)}</span></div>
-      <div class="sc-row"><span class="k">Target</span><span class="v mono" style="color:var(--bull)">${fmt(s.target)}</span></div>
-      <div class="sc-row"><span class="k">Stop</span><span class="v mono" style="color:var(--bear)">${fmt(s.sl)}</span></div>
+      <div class="sc-row"><span class="k">Entry</span><span class="v mono">${fmt(s.entry,SD.dec)}</span></div>
+      <div class="sc-row"><span class="k">Target</span><span class="v mono" style="color:var(--bull)">${fmt(s.target,SD.dec)}</span></div>
+      <div class="sc-row"><span class="k">Stop</span><span class="v mono" style="color:var(--bear)">${fmt(s.sl,SD.dec)}</span></div>
       <div class="sc-row"><span class="k">Confidence</span><span class="v"><span class="conf-bars">${bars}</span><span style="color:${cc}">${s.conf}%</span></span></div>
       <div class="sc-row"><span class="k">Expires</span><span class="v mono">${s.sstatus==='ACTIVE'?fmtLeft(s.expiresAt-Date.now()):'—'}</span></div>
       <div class="sc-chips">
@@ -1496,7 +1596,7 @@ async function generateSignal(){
   const btn=$('sigGenBtn'); btn.disabled=true; btn.innerHTML='<span class="spin">↻</span> Scanning…';
   const style=$('sigStyle').value, risk=$('sigRisk').value;
   const box=$('scanBox'), stepsEl=$('scanSteps');
-  $('scanTitle').textContent='ElePh AI is scanning XAUUSD · '+(style==='auto'?'best timeframe':style)+'…';
+  $('scanTitle').textContent='ElePh AI is scanning '+SYM().label+' · '+(style==='auto'?'best timeframe':style)+'…';
   box.classList.add('show'); stepsEl.innerHTML='';
   const dataP=loadData(false).catch(()=>{});          // real refresh runs behind the animation
   for(let i=0;i<SCAN_STEPS.length;i++){
@@ -1517,10 +1617,19 @@ async function generateSignal(){
     toast('🚫 ប្លុក! '+sig.direction.toUpperCase()+' '+sig.tfId+' ច្រាសទិសដៅ Higher TF ('+sig.htfAgainst+' against) — no signal created');
     setTimeout(()=>box.classList.remove('show'),3500);
   } else {
-    state.signals.unshift(sig); state.signals=state.signals.slice(0,12);
-    saveSignals(); renderSignals();
-    setTimeout(()=>box.classList.remove('show'),800);
-    toast('⚡ '+sig.direction.toUpperCase()+' signal @ '+fmt(sig.entry)+' · confidence '+sig.conf+'% · grade '+sig.grade);
+    const ga=guardAllows(sig.grade);
+    if(!ga.ok){
+      const d=document.createElement('div'); d.className='scan-step on';
+      d.innerHTML='<span class="ic" style="background:rgba(239,83,80,.18);color:var(--bear)">✕</span> <b style="color:var(--bear)">'+ga.reason+'</b>';
+      stepsEl.appendChild(d);
+      toast(ga.reason);
+      setTimeout(()=>box.classList.remove('show'),3500);
+    } else {
+      state.signals.unshift(sig); state.signals=state.signals.slice(0,12);
+      saveSignals(); renderSignals();
+      setTimeout(()=>box.classList.remove('show'),800);
+      toast('⚡ '+sig.direction.toUpperCase()+' signal @ '+fmt(sig.entry)+' · confidence '+sig.conf+'% · grade '+sig.grade);
+    }
   }
   renderHeader(); renderBias(); renderBoard();
   scanBusy=false; btn.disabled=false; btn.innerHTML='⚡ Generate Signal';
@@ -1550,10 +1659,10 @@ function aiSnapshot(){
   const h1=state.series['H1']||[];
   const recentH1=h1.slice(-24).map(c=>({o:+c.open.toFixed(1),h:+c.high.toFixed(1),l:+c.low.toFixed(1),c:+c.close.toFixed(1)}));
   return {
-    instrument:'XAU/USD (gold spot)',
-    live_price:+state.price.toFixed(2),
+    instrument:SYM().label+' ('+SYM().name+')',
+    live_price:+state.price.toFixed(SYM().dec),
     price_source:state.src,
-    candles: state.realCandles ? 'real Binance PAXG/USD OHLC rescaled to spot' : 'simulated (offline fallback)',
+    candles: state.realCandles ? 'real Binance OHLC ('+SYM().binance+')' : 'simulated (offline fallback)',
     overall_bias:{ verdict:o.sig.label, composite_score:+o.score.toFixed(1), bullish_tfs:o.bull, bearish_tfs:o.sell, total_tfs:o.total },
     timeframes:tfs,
     recent_h1_candles_oldest_first:recentH1,
@@ -1569,7 +1678,7 @@ function aiSnapshot(){
   };
 }
 const AI_SYSTEM=
-  'You are ElePh AI, the analyst inside a gold (XAU/USD) multi-timeframe signal terminal used by a retail trader whose goal is a HIGH WIN RATE — few trades, only the best ones. '+
+  'You are ElePh AI, the analyst inside a multi-asset trading terminal (gold and crypto — the current instrument is stated in the snapshot) used by a retail trader whose goal is a HIGH WIN RATE — few trades, only the best ones. '+
   'Each request includes a JSON snapshot: live price, per-timeframe indicator scores, the last 24 real H1 candles, the locked trade setup with its confluence grade (A+/A/B/C), and the terminal\'s own strategy-accuracy memory. '+
   'Structure every answer as: '+
   '1) VERDICT — one line: TAKE IT, WAIT, or SKIP, with the setup grade. '+
@@ -1597,6 +1706,8 @@ function applyAiVerdict(text){
     toast('🚫 Auto-trade blocked: '+dir+' '+tf+' ច្រាសទិសដៅ Higher TF — counter-trend filter 🛡️');
     return;
   }
+  const ga=guardAllows(su.grade);
+  if(!ga.ok){ toast('🤖 Auto-trade blocked: '+ga.reason); return; }
   // AUTO: lock the terminal setup, sync alerts, and drop an AI-tagged signal card
   state.tradeSetup=su;
   Alerts.syncFromSetup(su);
@@ -1677,9 +1788,27 @@ function initAI(){
 /* ============================================================
    INIT + AUTO REFRESH
 ============================================================ */
-let refreshTimer=null, alertTimer=null, refreshing=false, refreshCount=0;
+let refreshTimer=null, alertTimer=null, refreshing=false, refreshCount=0, switching=false;
+async function switchSymbol(sym){
+  if(switching||!SYMBOLS[sym]||sym===state.symbol) return;
+  switching=true;
+  if(state.tradeSetup) state.setupsBySym[state.symbol]=state.tradeSetup;   // keep each symbol's locked setup
+  state.symbol=sym; state.prefs.symbol=sym; Alerts.save();
+  const ld=$('loading'), lm=$('loadingMsg');
+  if(lm)lm.textContent='Loading '+SYM().icon+' '+SYM().label+' market data…';
+  ld.classList.remove('hidden');
+  state.series={}; state.analysis={}; state.realCandles=false; state.realTfCount=0; state.priceBase=null; klineHost=null;
+  try{ await loadData(true); }catch(e){}
+  const saved=state.setupsBySym[sym];
+  if(saved){ state.tradeSetup=saved; evaluateSetup(state.tradeSetup,state.price); }
+  else { state.tradeSetup=generateTradeSetup(state.selected); Alerts.syncFromSetup(state.tradeSetup); }
+  ld.classList.add('hidden');
+  renderAll();
+  toast('Switched to '+SYM().icon+' '+SYM().label+' · '+state.src);
+  switching=false;
+}
 async function refresh(silent){
-  if(refreshing)return; refreshing=true;
+  if(refreshing||switching)return; refreshing=true;
   const btn=$('refreshBtn'); if(!silent){btn.innerHTML='<span class="spin">↻</span> Refreshing';}
   try{
     await loadData(false);                 // tick last candle only; history + entry stay locked
@@ -1705,7 +1834,7 @@ function toast(msg,isAlert){
 
 // faster price-only watch so alerts fire promptly (history/scoreboard still refresh every 30s)
 async function liteTick(){
-  if(refreshing)return; refreshing=true;
+  if(refreshing||switching)return; refreshing=true;
   try{
     await loadData(false);
     if(state.tradeSetup){ evaluateSetup(state.tradeSetup,state.price); renderSetup(); }
@@ -1718,6 +1847,9 @@ async function liteTick(){
 async function init(){
   learnLoad();                 // must precede first analyze() so learned weights apply
   Alerts.load();
+  if(state.prefs.symbol && SYMBOLS[state.prefs.symbol]) state.symbol=state.prefs.symbol;
+  const sSel=$('symSel');
+  if(sSel){ sSel.value=state.symbol; sSel.onchange=()=>switchSymbol(sSel.value); }
   // --- alert preference toggles ---
   const ss=$('togSound'), dd=$('togDesktop');
   ss.checked=!!state.prefs.sound; dd.checked=!!state.prefs.desktop;
@@ -1747,6 +1879,12 @@ async function init(){
   const ctTog=$('ctFilterTog');
   ctTog.checked=state.prefs.ctFilter!==false;
   ctTog.onchange=()=>{ state.prefs.ctFilter=ctTog.checked; Alerts.save(); toast(ctTog.checked?'🛡️ Counter-trend filter ON — ចៀសវាងការខាតបង់':'Counter-trend filter OFF — trade at your own risk ⚠️'); };
+  // --- 🛡️ Risk Guardian toggles ---
+  [['gTogGrade','gGrade','💎 A-grades only'],['gTogDaily','gDaily','🔒 Daily −3R stop'],['gTogCool','gCool','⏳ Loss cooldown']].forEach(([id,pref,label])=>{
+    const t=$(id); if(!t)return;
+    t.checked=state.prefs[pref]!==false;
+    t.onchange=()=>{ state.prefs[pref]=t.checked; Alerts.save(); renderGuard(); toast(label+(t.checked?' ON':' OFF ⚠️')); };
+  });
 
   try{ await loadData(true); }catch(e){ /* guaranteed not to throw due to fallback */ }
   state.selected='H1';
