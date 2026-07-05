@@ -126,6 +126,27 @@
   .siggen{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
   .sig-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .sig-controls select{min-width:170px}
+  /* ---------- news & session radar ---------- */
+  .radar{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .radar-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+  @media(max-width:820px){.radar-grid{grid-template-columns:1fr}}
+  .rcard{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+  .rc-title{font-size:12px;font-weight:700;color:#cfd3dc;margin-bottom:9px}
+  .sess-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px}
+  .sess-name{display:flex;align-items:center;gap:7px}
+  .sess-dot{width:8px;height:8px;border-radius:50%;background:#3a3f50;flex-shrink:0}
+  .sess-dot.open{background:var(--bull);box-shadow:0 0 7px var(--bull)}
+  .sess-badge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:11px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+  .sess-badge.open{color:var(--bull);border-color:rgba(38,166,154,.4)}
+  .ev-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;gap:8px}
+  .ev-row:last-child{border-bottom:none}
+  .ev-name{font-weight:600} .ev-time{font-size:10px;color:var(--muted);margin-top:2px}
+  .ev-cd{font-weight:800;font-family:'SF Mono',Consolas,monospace;color:var(--gold);white-space:nowrap}
+  .ev-cd.soon{color:var(--bear)}
+  .radar-pre{margin-top:12px;padding:11px 14px;border-radius:9px;font-size:12px;line-height:1.65}
+  .radar-pre.warn{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.4);color:#ffd7d5}
+  .radar-pre.prep{background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.35);color:#f4e2b0}
+  .radar-pre.calm{background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
   .guardbar{margin-top:11px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:12px;color:var(--text)}
   .guard-togs{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
   .scanbox{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;display:none}
@@ -294,6 +315,20 @@
   </div>
   <div class="gauge"><div class="center"></div><div class="needle" id="needle" style="left:50%"></div></div>
   <div class="gauge-scale mono"><span>STRONG SELL</span><span>SELL</span><span>NEUTRAL</span><span>BUY</span><span>STRONG BUY</span></div>
+</div>
+
+<!-- NEWS & SESSION RADAR -->
+<div class="radar">
+  <div class="setup-head">
+    <div><div class="bias-label">📅 News & Session Radar <span style="color:var(--muted)">— NFP · US data · session opens · pre-market setup</span></div></div>
+    <div class="mstate" id="marketState" style="font-size:14px;font-weight:800">—</div>
+  </div>
+  <div class="radar-grid">
+    <div class="rcard"><div class="rc-title">🕐 Trading Sessions</div><div id="radarSessions"></div></div>
+    <div class="rcard"><div class="rc-title">📰 Upcoming High-Impact News</div><div id="radarEvents"></div></div>
+  </div>
+  <div class="radar-pre calm" id="radarPre"></div>
+  <label class="tog" style="margin-top:10px"><input type="checkbox" id="newsGuardTog" checked> 🛡️ Block new trades in the news window (30m before → 15m after NFP / US 08:30 ET data)</label>
 </div>
 
 <!-- TRADE SETUP  (entry locked, does NOT follow price) -->
@@ -1380,7 +1415,7 @@ function renderAnalysis(){
   $('stratList').innerHTML = rows +
     `<div class="agreebox"><b style="color:${aligned>=5?'var(--bull)':aligned<=2?'var(--bear)':'var(--neutral)'}">${aligned}/${strs.length}</b> strategies align with the <b>${tf}</b> signal (${sigFromScore(a.score).label}).</div>`;
 }
-function renderAll(){ renderHeader(); renderBias(); renderSetup(); renderBoard(); renderTabs(); renderChart(); renderIndicators(); renderAnalysis(); renderLearning(); renderSignals(); renderGuard(); Alerts.render(); }
+function renderAll(){ renderHeader(); renderBias(); renderRadar(); renderSetup(); renderBoard(); renderTabs(); renderChart(); renderIndicators(); renderAnalysis(); renderLearning(); renderSignals(); renderGuard(); Alerts.render(); }
 
 /* ============================================================
    PRICE ALERTS  (auto trade-level + custom ; sound + visual + desktop)
@@ -1506,6 +1541,117 @@ const Alerts={
 };
 
 /* ============================================================
+   NEWS & SESSION RADAR  (NFP / US data / session opens · DST-safe via Intl)
+============================================================ */
+function partsInTz(date,tz){
+  const p=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour12:false,weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(date);
+  const g=t=>p.find(x=>x.type===t).value;
+  return {wd:g('weekday'), y:+g('year'), mo:+g('month'), d:+g('day'), h:+g('hour')%24, mi:+g('minute'), s:+g('second')};
+}
+function tzOffsetMs(date,tz){ const q=partsInTz(date,tz); return Date.UTC(q.y,q.mo-1,q.d,q.h,q.mi,q.s)-date.getTime(); }
+function makeZoned(y,mo,d,h,mi,tz){ const guess=Date.UTC(y,mo-1,d,h,mi); return new Date(guess-tzOffsetMs(new Date(guess),tz)); }
+function clk(dt,tz){ const p=partsInTz(dt,tz); return String(p.h).padStart(2,'0')+':'+String(p.mi).padStart(2,'0'); }
+function cdn(ms){ if(ms<0)ms=0; const d=Math.floor(ms/86400e3),h=Math.floor(ms%86400e3/3600e3),m=Math.floor(ms%3600e3/60e3),s=Math.floor(ms%60e3/1000);
+  return d>0?d+'d '+h+'h':h>0?h+'h '+m+'m':m>0?m+'m '+s+'s':s+'s'; }
+const SESSIONS=[
+  {name:'Sydney', tz:'Australia/Sydney', o:7,  c:16,   ico:'🇦🇺'},
+  {name:'Tokyo',  tz:'Asia/Tokyo',       o:9,  c:18,   ico:'🇯🇵'},
+  {name:'London', tz:'Europe/London',    o:8,  c:16.5, ico:'🇬🇧'},
+  {name:'NewYork',tz:'America/New_York',  o:8,  c:17,   ico:'🇺🇸'},
+];
+function marketClosed(){
+  const et=partsInTz(new Date(),'America/New_York'); const t=et.h+et.mi/60;
+  if(et.wd==='Sat')return true;
+  if(et.wd==='Fri'&&t>=17)return true;
+  if(et.wd==='Sun'&&t<17)return true;
+  return false;
+}
+function sessionOpen(s){
+  if(marketClosed())return false;
+  const p=partsInTz(new Date(),s.tz); if(p.wd==='Sat'||p.wd==='Sun')return false;
+  const t=p.h+p.mi/60; return t>=s.o && t<s.c;
+}
+function nextOpen(s){
+  const now=Date.now();
+  for(let add=0;add<9;add++){
+    const p=partsInTz(new Date(now+add*86400e3),s.tz);
+    if(p.wd==='Sat'||p.wd==='Sun')continue;
+    const oh=Math.floor(s.o), om=Math.round((s.o-oh)*60);
+    const dt=makeZoned(p.y,p.mo,p.d,oh,om,s.tz);
+    if(dt.getTime()>now)return dt;
+  }
+  return null;
+}
+function firstFridayNFP(y,moIdx){
+  for(let day=1;day<=7;day++){ const dt=makeZoned(y,moIdx+1,day,8,30,'America/New_York'); if(partsInTz(dt,'America/New_York').wd==='Fri')return dt; }
+}
+function nextNFP(){ const now=Date.now(),d=new Date(); let dt=firstFridayNFP(d.getFullYear(),d.getMonth()); if(dt.getTime()<now)dt=firstFridayNFP(d.getFullYear(),d.getMonth()+1); return dt; }
+function nextUSData(){
+  const now=Date.now();
+  for(let add=0;add<7;add++){
+    const p=partsInTz(new Date(now+add*86400e3),'America/New_York');
+    if(p.wd==='Sat'||p.wd==='Sun')continue;
+    const dt=makeZoned(p.y,p.mo,p.d,8,30,'America/New_York');
+    if(dt.getTime()>now)return dt;
+  }
+}
+function newsSoon(){   // the reliable 08:30 ET US-data window (covers NFP, CPI, PPI, claims…)
+  const now=Date.now(), et=partsInTz(new Date(),'America/New_York');
+  if(et.wd==='Sat'||et.wd==='Sun')return {active:false};
+  const inst=makeZoned(et.y,et.mo,et.d,8,30,'America/New_York');
+  const active= now>=inst.getTime()-30*60e3 && now<=inst.getTime()+15*60e3;
+  const isNFP=partsInTz(inst,'America/New_York').wd==='Fri' && new Date().getDate()<=7;
+  return {active, before:now<inst.getTime(), inst, isNFP};
+}
+function inNewsWindow(){ return state.prefs.newsGuard!==false && newsSoon().active; }
+function renderRadar(){
+  const mEl=$('marketState'); if(!mEl)return;
+  const now=Date.now(), closed=marketClosed(), ns=newsSoon();
+  const sEl=$('radarSessions');
+  sEl.innerHTML=SESSIONS.map(s=>{
+    const open=sessionOpen(s); let right;
+    if(open){ const ch=Math.floor(s.c),cm=Math.round((s.c-ch)*60); right='until '+String(ch).padStart(2,'0')+':'+String(cm).padStart(2,'0'); }
+    else { const no=nextOpen(s); right=closed?'weekend':(no?'opens '+cdn(no.getTime()-now):'—'); }
+    const nm=s.name==='NewYork'?'New York':s.name;
+    return `<div class="sess-row"><span class="sess-name"><span class="sess-dot ${open?'open':''}"></span>${s.ico} ${nm} <span style="color:var(--muted)">${clk(new Date(),s.tz)}</span></span><span class="sess-badge ${open?'open':''}">${right}</span></div>`;
+  }).join('');
+  const nfp=nextNFP(), usd=nextUSData();
+  const evRow=(n,t,hi)=>{ const ms=t.getTime()-now, soon=ms<60*60e3, et=partsInTz(t,'America/New_York');
+    const when=et.wd+' '+String(et.h).padStart(2,'0')+':'+String(et.mi).padStart(2,'0')+' ET · '+et.mo+'/'+et.d;
+    return `<div class="ev-row"><span><div class="ev-name">${n}</div><div class="ev-time">${when}</div></span><span class="ev-cd ${soon?'soon':''}">${cdn(ms)}</span></div>`; };
+  $('radarEvents').innerHTML=
+    evRow('🔴 NFP · Non-Farm Payroll', nfp, true)+
+    evRow('🟠 Next US data (08:30 ET)', usd, true)+
+    `<div class="ev-row"><span class="ev-name" style="color:var(--muted)">🟡 FOMC 14:00 ET · CPI mid-month — dates vary, check a calendar</span></div>`;
+  const preEl=$('radarPre');
+  if(closed){
+    mEl.textContent='🌙 Weekend — market closed'; mEl.style.color='var(--muted)';
+    preEl.className='radar-pre calm'; preEl.innerHTML='Gold reopens <b>Sunday ~17:00 ET</b> (New York). Rest, review last week, and pre-plan only A+ setups.';
+  } else if(ns.active){
+    mEl.textContent='🔴 NEWS WINDOW — do not trade'; mEl.style.color='var(--bear)';
+    preEl.className='radar-pre warn';
+    preEl.innerHTML= ns.before
+      ? `⚠️ <b>${ns.isNFP?'NFP':'High-impact US data'} in ${cdn(ns.inst.getTime()-now)}</b> — spreads widen, stops get hunted, price whipsaws both ways. <b>Do NOT open new trades.</b> Wait until ~15m after release.`
+      : `⚠️ <b>Data just released</b> — extreme volatility. Let price settle (~${cdn(ns.inst.getTime()+15*60e3-now)} left) before entering.`;
+  } else {
+    const ny=nextOpen(SESSIONS[3]); const beforeNY=ny?ny.getTime()-now:1e12;
+    if(beforeNY>0 && beforeNY<=60*60e3){
+      const o=overallBias();
+      mEl.textContent='🔔 Pre-market — NY opens soon'; mEl.style.color='var(--gold)';
+      preEl.className='radar-pre prep';
+      preEl.innerHTML=`🔔 <b>Pre-market setup</b> — New York opens in <b>${cdn(beforeNY)}</b> (peak gold volatility). Current bias: <b>${o.sig.label}</b> (${o.score>=0?'+':''}${o.score.toFixed(0)}). Mark your levels now; wait for the open to confirm before entering.`;
+    } else {
+      const overlap=sessionOpen(SESSIONS[2])&&sessionOpen(SESSIONS[3]);
+      const anyOpen=SESSIONS.some(sessionOpen);
+      mEl.textContent= overlap?'🔥 London/NY overlap — peak volatility':anyOpen?'🟢 Market active':'🕐 Between sessions — quiet';
+      mEl.style.color= overlap?'var(--gold)':anyOpen?'var(--bull)':'var(--muted)';
+      preEl.className='radar-pre calm';
+      preEl.innerHTML=`Next major event: <b>NFP in ${cdn(nfp.getTime()-now)}</b>. `+(overlap?'Best window for A+ intraday setups.':anyOpen?'Trade only grade A/A+ setups.':'Low liquidity — patience pays.');
+    }
+  }
+}
+
+/* ============================================================
    AI SIGNAL GENERATOR  (zoqira-style scan → confidence → expiry)
 ============================================================ */
 const SIG_KEY='eleph_signals_v1';
@@ -1609,7 +1755,15 @@ async function generateSignal(){
   await dataP;
   CONFIG.timeframes.forEach(tf=>{ state.analysis[tf.id]=analyze(tf); });
   const sig=genSignal(style,risk);
-  if(state.prefs.ctFilter!==false && sig.counterTrend){
+  if(inNewsWindow()){
+    // 📰 never trade into high-impact news — stops get hunted
+    const ns=newsSoon();
+    const d=document.createElement('div'); d.className='scan-step on';
+    d.innerHTML='<span class="ic" style="background:rgba(239,83,80,.18);color:var(--bear)">✕</span> <b style="color:var(--bear)">📰 NEWS WINDOW — trade blocked ('+(ns.isNFP?'NFP':'US 08:30 ET data')+')</b>';
+    stepsEl.appendChild(d);
+    toast('🚫 News window! No trade — wait ~15m after the release. ('+(ns.isNFP?'NFP':'US data')+')');
+    setTimeout(()=>box.classList.remove('show'),3500);
+  } else if(state.prefs.ctFilter!==false && sig.counterTrend){
     // 🛡️ avoid counter-trend trades — they are the losing ones
     const d=document.createElement('div'); d.className='scan-step on';
     d.innerHTML='<span class="ic" style="background:rgba(239,83,80,.18);color:var(--bear)">✕</span> <b style="color:var(--bear)">Counter-trend detected — trade blocked (ជៀសវាងការខាតបង់)</b>';
@@ -1675,6 +1829,9 @@ function aiSnapshot(){
       pattern:s.pattern.name, pattern_confirms:s.patternConfirms } : null,
     learning_memory:{ wins:learn.wins, losses:learn.losses,
       strategy_accuracy:Object.fromEntries(Object.entries(learn.strat).map(([k,v])=>[k, v.total? (100*v.correct/v.total).toFixed(0)+'% of '+v.total : 'no data'])) },
+    market_timing:{ session_state:$('marketState')?$('marketState').textContent:'', news_window_now:inNewsWindow(),
+      next_nfp_in:cdn(nextNFP().getTime()-Date.now()), next_us_data_0830et_in:cdn(nextUSData().getTime()-Date.now()),
+      sessions_open:SESSIONS.filter(sessionOpen).map(s=>s.name) },
   };
 }
 const AI_SYSTEM=
@@ -1685,6 +1842,7 @@ const AI_SYSTEM=
   '2) WIN PROBABILITY — your honest estimated probability (a % range) that this setup reaches TP1 before SL, derived from the evidence in the snapshot (confluence, HTF alignment, ADX, pattern, price structure in the candles). Never inflate it; a coin-flip is ~50% and 1:1.5 RR needs >40% to be profitable — say whether this clears the bar. '+
   '3) EVIDENCE — the key confluences and conflicts, citing actual numbers. '+
   '4) HIGH-WIN-RATE PLAYBOOK — the exact conditions under which this trader should enter (e.g. which grade, HTF confirm count, ADX level, pattern confirmation), and what would invalidate the idea. Discipline rules: only A+/A grades, risk ≤1-2%, skip everything else. '+
+  'NEWS AWARENESS: the snapshot includes market_timing. If news_window_now is true, or a high-impact event (NFP / US 08:30 ET data) is under ~30 minutes away, tell the trader to WAIT — do not enter before the release (spreads widen and stops get hunted). Factor session timing too (London/NY overlap = best; quiet hours = skip). '+
   'Be direct and specific. Keep it under about 300 words. '+
   'If the user asks in Khmer, answer in Khmer; otherwise answer in the language of the question, defaulting to English. '+
   'End with one short line reminding this is educational analysis, not financial advice — no win rate is ever guaranteed. '+
@@ -1706,6 +1864,7 @@ function applyAiVerdict(text){
     toast('🚫 Auto-trade blocked: '+dir+' '+tf+' ច្រាសទិសដៅ Higher TF — counter-trend filter 🛡️');
     return;
   }
+  if(inNewsWindow()){ toast('🤖 Auto-trade blocked: 📰 news window — wait ~15m after the release'); return; }
   const ga=guardAllows(su.grade);
   if(!ga.ok){ toast('🤖 Auto-trade blocked: '+ga.reason); return; }
   // AUTO: lock the terminal setup, sync alerts, and drop an AI-tagged signal card
@@ -1840,7 +1999,7 @@ async function liteTick(){
     if(state.tradeSetup){ evaluateSetup(state.tradeSetup,state.price); renderSetup(); }
     renderHeader(); renderChart();
     Alerts.check(state.price);
-    evalSignals(state.price); renderSignals();   // keep countdowns + statuses fresh
+    evalSignals(state.price); renderSignals(); renderRadar();   // keep countdowns + statuses fresh
   }catch(e){}
   finally{ refreshing=false; }
 }
@@ -1885,6 +2044,10 @@ async function init(){
     t.checked=state.prefs[pref]!==false;
     t.onchange=()=>{ state.prefs[pref]=t.checked; Alerts.save(); renderGuard(); toast(label+(t.checked?' ON':' OFF ⚠️')); };
   });
+  // --- 📅 News-window guard toggle ---
+  const ngt=$('newsGuardTog');
+  if(ngt){ ngt.checked=state.prefs.newsGuard!==false;
+    ngt.onchange=()=>{ state.prefs.newsGuard=ngt.checked; Alerts.save(); renderRadar(); toast(ngt.checked?'🛡️ News-window block ON':'News-window block OFF ⚠️'); }; }
 
   try{ await loadData(true); }catch(e){ /* guaranteed not to throw due to fallback */ }
   state.selected='H1';
